@@ -1,0 +1,30 @@
+﻿{% extends "base.html" %}
+
+{% block content %}
+{% if current_user.is_authenticated %}
+<h1>Модули умного дома</h1>
+	<a href="/add_module" type="button" class="btn btn-info">Добавить новый модуль</a>
+        {% for item in modules %}
+	<div class="col-md6 border rounded">
+    	<h2>{{item.title}}</h2>
+    		<div>
+		{% if item.status %}
+        	Включен
+		{% else %}
+		Выключен
+		{% endif %}
+    		</div>
+    	<div>
+        Владелец- {{item.user.name}}
+    	</div>
+</div>
+<div>
+    <a href="/change_value/{{ item.id }}/1" class="btn btn-warning">Включить</a>
+    <a href="/change_value/{{ item.id }}/0" class="btn btn-danger">Выключить</a>
+</div>
+{% endfor %}
+{% else %}
+<h1>Чтобы ... войдите</h1>
+{% endif %}
+
+{% endblock %}
