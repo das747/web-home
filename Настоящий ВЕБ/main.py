@@ -1,3 +1,5 @@
+from collections import defaultdict
+
 import jsonify as jsonify
 from flask import Flask, request, jsonify
 import logging
@@ -23,11 +25,11 @@ from flask_ngrok import run_with_ngrok
 
 app = Flask(__name__)
 run_with_ngrok(app)
-logging.basicConfig(level=logging.INFO)
+# logging.basicConfig(level=logging.INFO)
 api = Api(app)
 api.add_resource(house_resource.HouseResource, '/api/v2/func/<device_id>/<int:status>')
 
-sessionStorage = {}
+sessionStorage = defaultdict(lambda: None)
 app.config['SECRET_KEY'] = 'yandexlyceum_secret_key'
 login_manager = LoginManager()
 login_manager.init_app(app)
@@ -60,13 +62,54 @@ class RegisterForm(FlaskForm):
 
 
 def handle_dialog(res, req):
-    if 'выключи' in req['request']['command'].lower():
-        print(post('http://127.0.0.1:5000/api/v2/light/0').json())
-        res['response']['text'] = 'Выключила'
-    else:
-        print(post('http://127.0.0.1:5000/api/v2/light/1').json())
-        res['response']['text'] = 'Включила'
-    print()
+    session = db_session.create_session()
+    res['response']['text'] = 'Nothing'
+    print(req['request']['command'], current_user.is_authenticated)
+    res['response']['buttons'] = []
+    if not current_user.is_authenticated:
+        #res['response']['text'] = 'Я не могу вам помочь, пока вы не войдете,' \
+        #                          'чтобы войти, введите свой email и пароль(через пробел)'
+        if req['request']['command'] and len(req['request']['command'].split()) == 2:
+            email, password = req['request']['command'].split()[0], req['request']['command'].split()[1]
+            session = db_session.create_session()
+            user = session.query(User).filter(User.email == email).first()
+            print(user.name, user.check_password(password), generate_password_hash(password))
+            if user and user.check_password(password):
+                login_user(user)
+                res['response']['text'] = 'Вы вошли'
+                return
+            else:
+                res['response']['text'] = 'Вы неправильно ввели логин или пароль'
+        return
+
+    elif req['request']['command'].lower() == 'выйти':
+        res['response']['text'] = 'Вы вышли'
+        logout_user()
+        return
+    elif req['request']['command'].lower() == 'help':
+        res['response']['text'] = '''Включить <Название модуля>
+            Выключить <Название модуля>'''
+        return
+    elif 'включить' in req['request']['command'].lower():
+        pos = req['request']['command'].lower().find('включить')
+        module_name = req['request']['command'][pos + 9:].lower()
+        session = db_session.create_session()
+        print(module_name)
+        if session.query(Houses).filter(Houses.user_id == current_user.id,
+                                        Houses.title == module_name).first():
+            print('включила')
+        return
+
+    elif 'выключить' in req['request']['command'].lower():
+        pos = req['request']['command'].lower().find('включить')
+        module_name = req['request']['command'][pos + 11:].lower()
+        session = db_session.create_session()
+        print(module_name)
+        if session.query(Houses).filter(Houses.user_id == current_user.id,
+                                        Houses.title == module_name).first():
+            print('выключила')
+        return
+    res['response']['text'] = 'Я не знаю этой команды, чтобы узнать список команд, напишите help'
 
 
 def main():
@@ -80,6 +123,7 @@ def main():
         if current_user.is_authenticated:
             modules = session.query(Houses).filter(Houses.user == current_user)
         else:
+
             modules = []
         for i in modules:
             print(i.user.name)  # Вот это
@@ -110,7 +154,7 @@ def main():
     def add_light():
         form = LightModule()
         if form.validate_on_submit():
-            module = Houses(title=form.title.data, user_id=current_user.id, status=0)
+            module = Houses(title=form.title.data.lower(), user_id=current_user.id, status=0)
             session.add(module)
             session.commit()
             return redirect('/')
@@ -140,7 +184,6 @@ def main():
     def turn_light(device_id, status):
         print(post(f'http://127.0.0.1:5000/api/v2/func/{device_id}/{status}').json())
         return redirect('/')
-
 
     @app.route('/post', methods=['POST'])
     def send():
