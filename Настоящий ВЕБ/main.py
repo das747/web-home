@@ -63,20 +63,25 @@ class RegisterForm(FlaskForm):
 
 def handle_dialog(res, req):
     session = db_session.create_session()
+    user_id = req['session']['user_id']
+    if req['session']['new']:
+        sessionStorage[user_id] = {'log_in': False, 'user': None}
     res['response']['text'] = 'Nothing'
-    print(req['request']['command'], current_user.is_authenticated)
+    print(req['request']['command'], sessionStorage[user_id]['log_in'])
     res['response']['buttons'] = []
-    if not current_user.is_authenticated:
-        #res['response']['text'] = 'Я не могу вам помочь, пока вы не войдете,' \
-        #                          'чтобы войти, введите свой email и пароль(через пробел)'
+    if not sessionStorage[user_id]['log_in']:
+        res['response']['text'] = 'Я не могу вам помочь, пока вы не войдете,' \
+                                  'чтобы войти, введите свой email и пароль(через пробел)'
         if req['request']['command'] and len(req['request']['command'].split()) == 2:
             email, password = req['request']['command'].split()[0], req['request']['command'].split()[1]
             session = db_session.create_session()
             user = session.query(User).filter(User.email == email).first()
             print(user.name, user.check_password(password), generate_password_hash(password))
             if user and user.check_password(password):
-                login_user(user)
+                sessionStorage[user_id]['user'] = user
+                sessionStorage[user_id]['log_in'] = True
                 res['response']['text'] = 'Вы вошли'
+                print(req['request']['command'], sessionStorage[user_id]['log_in'])
                 return
             else:
                 res['response']['text'] = 'Вы неправильно ввели логин или пароль'
@@ -84,7 +89,8 @@ def handle_dialog(res, req):
 
     elif req['request']['command'].lower() == 'выйти':
         res['response']['text'] = 'Вы вышли'
-        logout_user()
+        sessionStorage[user_id]['user'] = None
+        sessionStorage[user_id]['log_in'] = False
         return
     elif req['request']['command'].lower() == 'help':
         res['response']['text'] = '''Включить <Название модуля>
@@ -95,8 +101,11 @@ def handle_dialog(res, req):
         module_name = req['request']['command'][pos + 9:].lower()
         session = db_session.create_session()
         print(module_name)
-        if session.query(Houses).filter(Houses.user_id == current_user.id,
+        if session.query(Houses).filter(Houses.user_id == sessionStorage[user_id]['user'].id,
                                         Houses.title == module_name).first():
+            session.query(Houses).filter(Houses.user_id == sessionStorage[user_id]['user'].id,
+                                         Houses.title == module_name).first().status = True
+            session.commit()
             print('включила')
         return
 
@@ -105,8 +114,11 @@ def handle_dialog(res, req):
         module_name = req['request']['command'][pos + 11:].lower()
         session = db_session.create_session()
         print(module_name)
-        if session.query(Houses).filter(Houses.user_id == current_user.id,
+        if session.query(Houses).filter(Houses.user_id == sessionStorage[user_id]['user'].id,
                                         Houses.title == module_name).first():
+            session.query(Houses).filter(Houses.user_id == sessionStorage[user_id]['user'].id,
+                                         Houses.title == module_name).first().status = False
+            session.commit()
             print('выключила')
         return
     res['response']['text'] = 'Я не знаю этой команды, чтобы узнать список команд, напишите help'
