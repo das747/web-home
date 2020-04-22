@@ -6,8 +6,6 @@
 		<a href="/add_switch" type="button" class="btn btn-info">Добавить новый модуль</a>
 		{% set switches = current_user.editable_switches + current_user.usable_switches + public_switches %}
 		{% for switch in switches|unique|list %}
-		<p>{{switches}}</p><br>
-		<p>{{switches|unique(id)|list}}</p>
 		<br>
 			<div class="col-md6 border rounded">
 				<h2>{{switch.title}}</h2>
