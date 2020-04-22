@@ -1,7 +1,7 @@
 from flask import jsonify
 from flask_restful import Resource, reqparse
 from data import db_session
-from data.house import *
+from data.switches import *
 
 
 

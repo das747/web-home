@@ -1,30 +1,39 @@
 ﻿{% extends "base.html" %}
 
 {% block content %}
-{% if current_user.is_authenticated %}
-<h1>Модули умного дома</h1>
-	<a href="/add_module" type="button" class="btn btn-info">Добавить новый модуль</a>
-        {% for item in modules %}
-	<div class="col-md6 border rounded">
-    	<h2>{{item.title}}</h2>
-    		<div>
-		{% if item.status %}
-        	Включен
-		{% else %}
-		Выключен
-		{% endif %}
-    		</div>
-    	<div>
-        Владелец- {{item.user.name}}
-    	</div>
-</div>
-<div>
-    <a href="/change_value/{{ item.id }}/1" class="btn btn-warning">Включить</a>
-    <a href="/change_value/{{ item.id }}/0" class="btn btn-danger">Выключить</a>
-</div>
-{% endfor %}
-{% else %}
-<h1>Чтобы ... войдите</h1>
-{% endif %}
+	{% if current_user.is_authenticated %}
+		<h1>Модули умного дома</h1>
+		<a href="/add_switch" type="button" class="btn btn-info">Добавить новый модуль</a>
+		{% set switches = current_user.editable_switches + current_user.usable_switches + public_switches %}
+		{% for switch in switches|unique|list %}
+		<p>{{switches}}</p><br>
+		<p>{{switches|unique(id)|list}}</p>
+		<br>
+			<div class="col-md6 border rounded">
+				<h2>{{switch.title}}</h2>
+				<div>
+					{% if switch.status %}
+						Включен
+					{% else %}
+						Выключен
+					{% endif %}
+				</div>
+			</div>
+			{% if current_user in switch.editors or not switch.editors %}
+				<div>
+					<a href="/edit_switch/{{ switch.id }}" class="btn btn-secondary">Редактировать</a>
+					<a href="/delete_switch/{{ switch.id }}" class="btn btn-danger">Удалить</a>
+				</div>
+			{% endif %}
+			{% if current_user in switch.users or not switch.users %}
+				<div>
+					<a href="/set_switch/{{ switch.id }}/1" class="btn btn-warning">Включить</a>
+					<a href="/set_switch/{{ switch.id }}/0" class="btn btn-danger">Выключить</a>
+				</div>
+			{% endif %}
+		{% endfor %}
+	{% else %}
+		<h1>Для доступа к умному дому необходима авторизация</h1>
+	{% endif %}
 
 {% endblock %}
