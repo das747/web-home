@@ -168,262 +168,272 @@ def handle_dialog(res, req):
     res['response']['text'] = 'Я не знаю этой команды, чтобы узнать список команд, напишите help'
 
 
-def main():
-    db_session.global_init("db/smart_house.db")
+db_session.global_init("db/smart_house.db")
 
-    @app.route("/", methods=['GET'])
-    def start():
-        session = db_session.create_session()
-        if current_user.is_authenticated:
-            user = session.query(User).filter(User.id == current_user.id).first()
-            public = session.query(Switch).filter((Switch.public_edit == 1) |
-                                                  (Switch.public_use == 1),
-                                                  Switch.house_id == user.house_id).all()
-            switches = {*user.usable_switches, *user.editable_switches, *public}
-        else:
-            switches = []
-        return render_template('index.html', title='smart house', switches=switches)
 
-    @app.route('/add_switch', methods=['GET', 'POST'])
-    @login_required
-    def add_switch():
-        form = SwitchForm()
-        session = db_session.create_session()
-        all_users = [(user.id, user.name) for user in
-                     session.query(User).filter(User.house_id == current_user.house_id).all()]
-        form.users.choices = all_users
-        form.editors.choices = all_users
-        if form.validate_on_submit():
-            session = db_session.create_session()
-            if session.query(Switch).filter(Switch.title == form.title.data,
-                                            Switch.house_id == current_user.house_id).first():
-                return render_template('switch.html', title='Добавление модуля', form=form,
-                                       message='Имя модуля уже занято')
-            elif session.query(Switch).filter(Switch.port == form.port.data,
-                                              Switch.house_id == current_user.house_id).first():
-                return render_template('switch.html', title='Добавление модуля', form=form,
-                                       message='Этот порт уже используется')
-
-            switch = Switch(title=form.title.data.lower(), status=0, port=form.port.data,
-                            house_id=current_user.house_id)
-            session.add(switch)
-            for user in form.users.data:
-                switch.users.append(session.query(User).filter(User.id == user).first())
-            for editor in form.editors.data:
-                switch.editors.append(session.query(User).filter(User.id == editor).first())
-            switch.public_edit = not bool(switch.editors)
-            switch.public_use = not bool(switch.users)
-            session.merge(switch)
-            session.commit()
-            return redirect('/')
-        return render_template('switch.html', title='Добавление модуля', form=form)
-
-    @app.route('/edit_switch/<int:switch_id>', methods=['GET', 'POST'])
-    @login_required
-    def edit_switch(switch_id):
-        form = SwitchForm()
-        session = db_session.create_session()
-        all_users = [(user.id, user.name) for user in
-                     session.query(User).filter(User.house_id == current_user.house_id).all()]
-        form.editors.choices = all_users
-        form.users.choices = all_users
-        switch = session.query(Switch).filter(Switch.id == switch_id).first()
-        if switch:
-            if current_user in switch.editors or switch.public_edit:
-                if request.method == 'GET':
-                    form.title.data = switch.title
-                    form.port.data = switch.port
-                    form.editors.data = [user.id for user in switch.editors]
-                    form.users.data = [user.id for user in switch.users]
-
-                elif form.validate_on_submit():
-                    if session.query(Switch).filter(Switch.title == form.title.data,
-                                                    Switch.id != switch_id,
-                                                    Switch.house_id == switch.house_id).first():
-                        return render_template('switch.html', title='Редактирования модуля',
-                                               form=form, message='Имя модуля уже занято')
-                    elif session.query(Switch).filter(Switch.port == form.port.data,
-                                                      Switch.id != switch_id,
-                                                      Switch.house_id == switch.house_id).first():
-                        return render_template('switch.html', title='Редактирования модуля',
-                                               form=form, message='"Этот порт уже используется"')
-                    switch.title = form.title.data
-                    switch.port = form.port.data
-                    for user in switch.users:
-                        if user.id not in form.users.data:
-                            switch.users.remove(user)
-                    for user_id in form.users.data:
-                        user = session.query(User).filter(User.id == user_id).first()
-                        if user not in switch.users:
-                            switch.users.append(user)
-                    for user in switch.editors:
-                        if user.id not in form.editors.data:
-                            switch.editors.remove(user)
-                    for user_id in form.editors.data:
-                        user = session.query(User).filter(User.id == user_id).first()
-                        if user not in switch.editors:
-                            switch.editors.append(user)
-                    switch.public_edit = not bool(switch.editors)
-                    switch.public_use = not bool(switch.users)
-                    session.merge(switch)
-                    session.commit()
-                    return redirect('/')
-                else:
-                    abort(403)
-            else:
-                abort(404)
-        return render_template('switch.html', title='Редактирование модуля', form=form)
-
-    @app.route('/delete_switch/<int:switch_id>', methods=['GET'])
-    @login_required
-    def delete_switch(switch_id):
-        session = db_session.create_session()
-        switch = session.query(Switch).filter(Switch.id == switch_id).first()
-        if switch:
-            if switch.public_edit or current_user in switch.editors:
-                session.delete(switch)
-                session.commit()
-            else:
-                abort(403)
-        else:
-            abort(404)
-        return redirect('/')
-
-    @app.route('/add_house', methods=['GET', 'POST'])
-    def add_house():
-        form = HouseRegisterForm()
-        if form.validate_on_submit():
-            session = db_session.create_session()
-            if session.query(House).filter(House.title == form.title.data).first():
-                return render_template('house.html', form=form, title='Добавление дома',
-                                       message='Имя дома уже занято')
-            elif session.query(House).filter(House.web_hook == form.address.data).first():
-                return render_template('house.html', form=form, title='Добавление дома',
-                                       message='Дом с таким адресом уже добавлен')
-            elif form.password.data != form.password_again.data:
-                return render_template('house.html', form=form, title='Добавление дома',
-                                       message='Пароли не совпадают')
-            else:
-                house = House(title=form.title.data, web_hook=form.address.data)
-                house.set_password(form.password.data)
-                session.add(house)
-                session.commit()
-                return redirect('/register')
-        return render_template('house.html', form=form, title='Добавление дома')
-
-    @app.route('/edit_house/<int:house_id>', methods=['GET', 'POST'])
-    @login_required
-    def edit_house(house_id):
-        form = HouseEditForm()
-        session = db_session.create_session()
-        house = session.query(House).filter(House.id == house_id).first()
+@app.route("/", methods=['GET'])
+def start():
+    session = db_session.create_session()
+    if current_user.is_authenticated:
         user = session.query(User).filter(User.id == current_user.id).first()
-        if house:
-            if house.id == user.house.id:
-                if request.method == 'GET':
-                    form.address.data = house.web_hook
-                    form.title.data = house.title
-                    return render_template('house.html', title='Редактирование дома', form=form)
-                elif form.validate_on_submit():
-                    if session.query(House).filter(House.title == form.title.data,
-                                                   House.id != house_id).first():
-                        return render_template('house.html', title='Редактирование дома', form=form,
-                                               message='Имя дома уже занято')
-                    elif session.query(House).filter(House.web_hook == form.address.data,
-                                                     House.id != house_id).first():
-                        return render_template('house.html', title='Редактирование дома', form=form,
-                                               message='Дом с таким адресом уже существует')
-                    elif not house.check_password(form.password.data):
-                        return render_template('house.html', title='Редактирование дома', form=form,
-                                               message='Указан неверный пароль')
-                    house.title = form.title.data
-                    house.web_hook = form.address.data
-                    session.commit()
-                    return redirect('/')
-            else:
-                abort(403)
-        else:
-            abort(404)
+        public = session.query(Switch).filter((Switch.public_edit == 1) |
+                                              (Switch.public_use == 1),
+                                              Switch.house_id == user.house_id).all()
+        switches = {*user.usable_switches, *user.editable_switches, *public}
+    else:
+        switches = []
+    return render_template('index.html', title='smart house', switches=switches)
 
-    @app.route('/register', methods=['GET', 'POST'])
-    def register():
-        form = RegisterForm()
+
+@app.route('/add_switch', methods=['GET', 'POST'])
+@login_required
+def add_switch():
+    form = SwitchForm()
+    session = db_session.create_session()
+    all_users = [(user.id, user.name) for user in
+                 session.query(User).filter(User.house_id == current_user.house_id).all()]
+    form.users.choices = all_users
+    form.editors.choices = all_users
+    if form.validate_on_submit():
         session = db_session.create_session()
-        house_choices = [(house.id, house.title) for house in session.query(House).all()]
-        form.house_id.choices = house_choices
-        if form.validate_on_submit():
-            if form.password.data != form.password_again.data:
-                return render_template('register.html', title='Регистрация', form=form,
-                                       message="Пароли не совпадают")
-            session = db_session.create_session()
-            if session.query(User).filter(User.email == form.email.data).first():
-                return render_template('register.html', title='Регистрация', form=form,
-                                       message="Такой пользователь уже есть")
+        if session.query(Switch).filter(Switch.title == form.title.data,
+                                        Switch.house_id == current_user.house_id).first():
+            return render_template('switch.html', title='Добавление модуля', form=form,
+                                   message='Имя модуля уже занято')
+        elif session.query(Switch).filter(Switch.port == form.port.data,
+                                          Switch.house_id == current_user.house_id).first():
+            return render_template('switch.html', title='Добавление модуля', form=form,
+                                   message='Этот порт уже используется')
 
-            elif not session.query(House).filter(
-                    House.id == form.house_id.data).first().check_password(form.house_password.data):
-                return render_template('register.html', title='Регистрация', form=form,
-                                       message="Пароль от дома укзан неверно")
-            user = User(name=form.name.data, email=form.email.data, house_id=form.house_id.data)
-            user.set_password(form.password.data)
-            session.add(user)
-            session.commit()
-            return redirect('/login')
-        return render_template('register.html', title='Регистрация', form=form)
-
-    @app.route('/login', methods=['GET', 'POST'])
-    def login():
-        form = LoginForm()
-        if form.validate_on_submit():
-            session = db_session.create_session()
-            user = session.query(User).filter(User.email == form.email.data).first()
-            if user and user.check_password(form.password.data):
-                login_user(user, remember=form.remember_me.data)
-                return redirect("/")
-            return render_template('login.html',
-                                   message="Неправильный логин или пароль",
-                                   form=form)
-        return render_template('login.html', title='Авторизация', form=form)
-
-    @app.route('/logout')
-    @login_required
-    def logout():
-        logout_user()
-        return redirect("/")
-
-    @app.route('/set_switch/<int:device_id>/<int:status>', methods=['GET', 'POST'])
-    @login_required
-    def turn_light(device_id, status):
-        session = db_session.create_session()
-        user = session.query(User).filter(User.id == current_user.id).first()
-        switch = session.query(Switch).filter(Switch.id == device_id).first()
-        if switch:
-            if switch.public_use or user in switch.users:
-                switch.status = status
-                session.commit()
-            #     post(switch.house.web_hook, json={'port': switch.port, 'status': switch.status})
-            else:
-                abort(403)
-        else:
-            abort(404)
+        switch = Switch(title=form.title.data.lower(), status=0, port=form.port.data,
+                        house_id=current_user.house_id)
+        session.add(switch)
+        for user in form.users.data:
+            switch.users.append(session.query(User).filter(User.id == user).first())
+        for editor in form.editors.data:
+            switch.editors.append(session.query(User).filter(User.id == editor).first())
+        switch.public_edit = not bool(switch.editors)
+        switch.public_use = not bool(switch.users)
+        session.merge(switch)
+        session.commit()
         return redirect('/')
+    return render_template('switch.html', title='Добавление модуля', form=form)
 
-    @app.route('/post', methods=['POST'])
-    def send():
-        logging.info(f'Request: {request.json!r}')
-        response = {
-            'session': request.json['session'],
-            'version': request.json['version'],
-            'response': {
-                'end_session': False
-            }
+
+@app.route('/edit_switch/<int:switch_id>', methods=['GET', 'POST'])
+@login_required
+def edit_switch(switch_id):
+    form = SwitchForm()
+    session = db_session.create_session()
+    all_users = [(user.id, user.name) for user in
+                 session.query(User).filter(User.house_id == current_user.house_id).all()]
+    form.editors.choices = all_users
+    form.users.choices = all_users
+    switch = session.query(Switch).filter(Switch.id == switch_id).first()
+    if switch:
+        if current_user in switch.editors or switch.public_edit:
+            if request.method == 'GET':
+                form.title.data = switch.title
+                form.port.data = switch.port
+                form.editors.data = [user.id for user in switch.editors]
+                form.users.data = [user.id for user in switch.users]
+
+            elif form.validate_on_submit():
+                if session.query(Switch).filter(Switch.title == form.title.data,
+                                                Switch.id != switch_id,
+                                                Switch.house_id == switch.house_id).first():
+                    return render_template('switch.html', title='Редактирования модуля',
+                                           form=form, message='Имя модуля уже занято')
+                elif session.query(Switch).filter(Switch.port == form.port.data,
+                                                  Switch.id != switch_id,
+                                                  Switch.house_id == switch.house_id).first():
+                    return render_template('switch.html', title='Редактирования модуля',
+                                           form=form, message='"Этот порт уже используется"')
+                switch.title = form.title.data
+                switch.port = form.port.data
+                for user in switch.users:
+                    if user.id not in form.users.data:
+                        switch.users.remove(user)
+                for user_id in form.users.data:
+                    user = session.query(User).filter(User.id == user_id).first()
+                    if user not in switch.users:
+                        switch.users.append(user)
+                for user in switch.editors:
+                    if user.id not in form.editors.data:
+                        switch.editors.remove(user)
+                for user_id in form.editors.data:
+                    user = session.query(User).filter(User.id == user_id).first()
+                    if user not in switch.editors:
+                        switch.editors.append(user)
+                switch.public_edit = not bool(switch.editors)
+                switch.public_use = not bool(switch.users)
+                session.merge(switch)
+                session.commit()
+                return redirect('/')
+            else:
+                abort(403)
+        else:
+            abort(404)
+    return render_template('switch.html', title='Редактирование модуля', form=form)
+
+
+@app.route('/delete_switch/<int:switch_id>', methods=['GET'])
+@login_required
+def delete_switch(switch_id):
+    session = db_session.create_session()
+    switch = session.query(Switch).filter(Switch.id == switch_id).first()
+    if switch:
+        if switch.public_edit or current_user in switch.editors:
+            session.delete(switch)
+            session.commit()
+        else:
+            abort(403)
+    else:
+        abort(404)
+    return redirect('/')
+
+
+@app.route('/add_house', methods=['GET', 'POST'])
+def add_house():
+    form = HouseRegisterForm()
+    if form.validate_on_submit():
+        session = db_session.create_session()
+        if session.query(House).filter(House.title == form.title.data).first():
+            return render_template('house.html', form=form, title='Добавление дома',
+                                   message='Имя дома уже занято')
+        elif session.query(House).filter(House.web_hook == form.address.data).first():
+            return render_template('house.html', form=form, title='Добавление дома',
+                                   message='Дом с таким адресом уже добавлен')
+        elif form.password.data != form.password_again.data:
+            return render_template('house.html', form=form, title='Добавление дома',
+                                   message='Пароли не совпадают')
+        else:
+            house = House(title=form.title.data, web_hook=form.address.data)
+            house.set_password(form.password.data)
+            session.add(house)
+            session.commit()
+            return redirect('/register')
+    return render_template('house.html', form=form, title='Добавление дома')
+
+
+@app.route('/edit_house/<int:house_id>', methods=['GET', 'POST'])
+@login_required
+def edit_house(house_id):
+    form = HouseEditForm()
+    session = db_session.create_session()
+    house = session.query(House).filter(House.id == house_id).first()
+    user = session.query(User).filter(User.id == current_user.id).first()
+    if house:
+        if house.id == user.house.id:
+            if request.method == 'GET':
+                form.address.data = house.web_hook
+                form.title.data = house.title
+                return render_template('house.html', title='Редактирование дома', form=form)
+            elif form.validate_on_submit():
+                if session.query(House).filter(House.title == form.title.data,
+                                               House.id != house_id).first():
+                    return render_template('house.html', title='Редактирование дома', form=form,
+                                           message='Имя дома уже занято')
+                elif session.query(House).filter(House.web_hook == form.address.data,
+                                                 House.id != house_id).first():
+                    return render_template('house.html', title='Редактирование дома', form=form,
+                                           message='Дом с таким адресом уже существует')
+                elif not house.check_password(form.password.data):
+                    return render_template('house.html', title='Редактирование дома', form=form,
+                                           message='Указан неверный пароль')
+                house.title = form.title.data
+                house.web_hook = form.address.data
+                session.commit()
+                return redirect('/')
+        else:
+            abort(403)
+    else:
+        abort(404)
+
+
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    form = RegisterForm()
+    session = db_session.create_session()
+    house_choices = [(house.id, house.title) for house in session.query(House).all()]
+    form.house_id.choices = house_choices
+    if form.validate_on_submit():
+        if form.password.data != form.password_again.data:
+            return render_template('register.html', title='Регистрация', form=form,
+                                   message="Пароли не совпадают")
+        session = db_session.create_session()
+        if session.query(User).filter(User.email == form.email.data).first():
+            return render_template('register.html', title='Регистрация', form=form,
+                                   message="Такой пользователь уже есть")
+
+        elif not session.query(House).filter(
+                House.id == form.house_id.data).first().check_password(form.house_password.data):
+            return render_template('register.html', title='Регистрация', form=form,
+                                   message="Пароль от дома укзан неверно")
+        user = User(name=form.name.data, email=form.email.data, house_id=form.house_id.data)
+        user.set_password(form.password.data)
+        session.add(user)
+        session.commit()
+        return redirect('/login')
+    return render_template('register.html', title='Регистрация', form=form)
+
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    form = LoginForm()
+    if form.validate_on_submit():
+        session = db_session.create_session()
+        user = session.query(User).filter(User.email == form.email.data).first()
+        if user and user.check_password(form.password.data):
+            login_user(user, remember=form.remember_me.data)
+            return redirect("/")
+        return render_template('login.html',
+                               message="Неправильный логин или пароль",
+                               form=form)
+    return render_template('login.html', title='Авторизация', form=form)
+
+
+@app.route('/logout')
+@login_required
+def logout():
+    logout_user()
+    return redirect("/")
+
+
+@app.route('/set_switch/<int:device_id>/<int:status>', methods=['GET', 'POST'])
+@login_required
+def turn_light(device_id, status):
+    session = db_session.create_session()
+    user = session.query(User).filter(User.id == current_user.id).first()
+    switch = session.query(Switch).filter(Switch.id == device_id).first()
+    if switch:
+        if switch.public_use or user in switch.users:
+            switch.status = status
+            session.commit()
+        #     post(switch.house.web_hook, json={'port': switch.port, 'status': switch.status})
+        else:
+            abort(403)
+    else:
+        abort(404)
+    return redirect('/')
+
+
+@app.route('/post', methods=['POST'])
+def send():
+    logging.info(f'Request: {request.json!r}')
+    response = {
+        'session': request.json['session'],
+        'version': request.json['version'],
+        'response': {
+            'end_session': False
         }
-        handle_dialog(response, request.json)
-        logging.info(f'Response: {response!r}')
-        return json.dumps(response)
+    }
+    handle_dialog(response, request.json)
+    logging.info(f'Response: {response!r}')
+    return json.dumps(response)
 
     app.run()
 
 
 if __name__ == '__main__':
-    main()
+    app.run()
