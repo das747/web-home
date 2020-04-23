@@ -7,7 +7,6 @@ import random
 
 from flask_login import LoginManager, login_user, login_required, current_user, logout_user
 from flask_wtf import FlaskForm
-from requests import post, get
 from werkzeug.utils import redirect
 from wtforms import (PasswordField, SubmitField, BooleanField, StringField, SelectMultipleField,
                      widgets, IntegerField)
@@ -21,10 +20,7 @@ from data.switches import *
 from data.users import *
 from data.groups import *
 
-from flask_ngrok import run_with_ngrok
-
 app = Flask(__name__)
-# run_with_ngrok(app)
 # logging.basicConfig(level=logging.INFO)
 api = Api(app)
 # api.add_resource(house_resource.HouseResource, '/api/v2/func/<device_id>/<int:status>')
@@ -72,55 +68,84 @@ class RegisterForm(FlaskForm):
     submit = SubmitField('Войти')
 
 
-# def handle_dialog(res, req):
-#     session = db_session.create_session()
-#     res['response']['text'] = 'Nothing'
-#     print(req['request']['command'], current_user.is_authenticated)
-#     res['response']['buttons'] = []
-#     if not current_user.is_authenticated:
-#         #res['response']['text'] = 'Я не могу вам помочь, пока вы не войдете,' \
-#         #                          'чтобы войти, введите свой email и пароль(через пробел)'
-#         if req['request']['command'] and len(req['request']['command'].split()) == 2:
-#             email, password = req['request']['command'].split()[0], req['request']['command'].split()[1]
-#             session = db_session.create_session()
-#             user = session.query(User).filter(User.email == email).first()
-#             print(user.name, user.check_password(password), generate_password_hash(password))
-#             if user and user.check_password(password):
-#                 login_user(user)
-#                 res['response']['text'] = 'Вы вошли'
-#                 return
-#             else:
-#                 res['response']['text'] = 'Вы неправильно ввели логин или пароль'
-#         return
-#
-#     elif req['request']['command'].lower() == 'выйти':
-#         res['response']['text'] = 'Вы вышли'
-#         logout_user()
-#         return
-#     elif req['request']['command'].lower() == 'help':
-#         res['response']['text'] = '''Включить <Название модуля>
-#             Выключить <Название модуля>'''
-#         return
-#     elif 'включить' in req['request']['command'].lower():
-#         pos = req['request']['command'].lower().find('включить')
-#         module_name = req['request']['command'][pos + 9:].lower()
-#         session = db_session.create_session()
-#         print(module_name)
-#         if session.query(Houses).filter(Houses.user_id == current_user.id,
-#                                         Houses.title == module_name).first():
-#             print('включила')
-#         return
-#
-#     elif 'выключить' in req['request']['command'].lower():
-#         pos = req['request']['command'].lower().find('включить')
-#         module_name = req['request']['command'][pos + 11:].lower()
-#         session = db_session.create_session()
-#         print(module_name)
-#         if session.query(Houses).filter(Houses.user_id == current_user.id,
-#                                         Houses.title == module_name).first():
-#             print('выключила')
-#         return
-#     res['response']['text'] = 'Я не знаю этой команды, чтобы узнать список команд, напишите help'
+def handle_dialog(res, req):
+    session = db_session.create_session()
+    user_id = req['session']['user_id']
+    if req['session']['new']:
+        sessionStorage[user_id] = {'log_in': False, 'user': None}
+    res['response']['text'] = 'Nothing'
+    print(req['request']['command'], sessionStorage[user_id]['log_in'])
+    res['response']['buttons'] = []
+    if not sessionStorage[user_id]['log_in']:
+        res['response']['text'] = 'Я не могу вам помочь, пока вы не войдете,' \
+                                  'чтобы войти, введите свой email и пароль(через пробел)'
+        if req['request']['command'] and len(req['request']['command'].split()) == 2:
+            email, password = req['request']['command'].split()[0], req['request']['command'].split()[1]
+            user = session.query(User).filter(User.email == email).first()
+            print(user.name, user.check_password(password), generate_password_hash(password))
+            if user and user.check_password(password):
+                sessionStorage[user_id]['user'] = user
+                sessionStorage[user_id]['log_in'] = True
+                res['response']['text'] = 'Вы вошли'
+                print(req['request']['command'], sessionStorage[user_id]['log_in'])
+                return
+            else:
+                res['response']['text'] = 'Вы неправильно ввели логин или пароль'
+        return
+
+    elif req['request']['command'].lower() == 'выйти':
+        res['response']['text'] = 'Вы вышли'
+        sessionStorage[user_id]['user'] = None
+        sessionStorage[user_id]['log_in'] = False
+        return
+
+    elif req['request']['command'].lower() == 'help':
+        res['response']['text'] = '''Включить <Название модуля>
+            Выключить <Название модуля>'''
+        return
+
+    elif 'включить' in req['request']['command'].lower():
+        pos = req['request']['command'].lower().find('включить')
+        target = req['request']['command'][pos + 9:].lower().strip()
+        print(target)
+        if target:
+            res['response']['text'] = 'Не смогла найти'
+            user = sessionStorage[user_id]['user']
+            if len(target.split()) > 1 and target.split()[0] == 'группу':
+                res['response']['text'] = 'Я ещё не работаю с группами'
+            else:
+                for switch in user.usable_switches:
+                    if switch.title == target:
+                        switch.status = True
+                        res['response']['text'] = 'Включила!'
+                        break
+            session.commit()
+            print('включила')
+        else:
+            res['response']['text'] = 'Что включить?'
+        return
+
+    elif 'выключить' in req['request']['command'].lower():
+        pos = req['request']['command'].lower().find('включить')
+        target = req['request']['command'][pos + 11:].lower().strip()
+        print(target)
+        if target:
+            res['response']['text'] = 'Не смогла найти'
+            user = sessionStorage[user_id]['user']
+            if len(target.split()) > 1 and target.split()[0] == 'группу':
+                res['response']['text'] = 'Я ещё не работаю с группами'
+            else:
+                for switch in user.usable_switches:
+                    if switch.title == target:
+                        switch.status = False
+                        res['response']['text'] = 'Выключила!'
+                        break
+            session.commit()
+            print('выключила')
+        else:
+            res['response']['text'] = 'Что выключить?'
+        return
+    res['response']['text'] = 'Я не знаю этой команды, чтобы узнать список команд, напишите help'
 
 
 def main():
