@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1>Регистрация умного дома</h1>
+<form action="" method="post">
+    {{ form.hidden_tag() }}
+    {{ form.csrf_token }}
+    {% for field in form if field.name not in ['csrf_token', 'submit']%}
+        <p>
+            {{ field.label }}<br>
+            {{ field(class="form-control") }}<br>
+            {% for error in field.errors %}
+                <p class="alert alert-danger" role="alert">
+                    {{ error }}
+                </p>
+            {% endfor %}
+        </p>
+    {% endfor %}
+    <br>
+    <p>{{ form.submit(type="submit", class="btn btn-primary") }}</p>
+    {{message}}
+</form>
+{% endblock %}

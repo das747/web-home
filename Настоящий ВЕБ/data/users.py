@@ -37,7 +37,8 @@ class User(SqlAlchemyBase, UserMixin):
                            primary_key=True, autoincrement=True)
     name = sqlalchemy.Column(sqlalchemy.String, nullable=True)
     email = sqlalchemy.Column(sqlalchemy.String)
-    hashed_password = sqlalchemy.Column(sqlalchemy.String, nullable=True)
+    hashed_password = sqlalchemy.Column(sqlalchemy.String)
+    house_id = sqlalchemy.Column(sqlalchemy.Integer, sqlalchemy.ForeignKey('houses.id'))
     usable_switches = orm.relationship("Switch", secondary='users_to_switches',
                                        back_populates='users')
     editable_switches = orm.relationship("Switch", secondary='editors_to_switches',
@@ -45,6 +46,7 @@ class User(SqlAlchemyBase, UserMixin):
     usable_groups = orm.relationship('Group', secondary='users_to_groups', back_populates='users')
     editable_groups = orm.relationship('Group', secondary='editors_to_groups',
                                        back_populates='editors')
+    house = orm.relation('House')
 
     def set_password(self, password):
         self.hashed_password = generate_password_hash(password)

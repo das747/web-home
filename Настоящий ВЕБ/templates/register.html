@@ -5,19 +5,33 @@
 <form action="" method="post">
     {{ form.hidden_tag() }}
     {{ form.csrf_token }}
-    {% for field in form if field.name not in ['csrf_token', 'submit']%}
+    {% for field in form if field.name not in ['csrf_token', 'submit', 'house_id', 'house_password']%}
         <p>
             {{ field.label }}<br>
             {{ field(class="form-control") }}<br>
             {% for error in field.errors %}
-                <p class="alert alert-danger" role="alert">
-                    {{ error }}
-                </p>
+            <p class="alert alert-danger" role="alert">
+                {{ error }}
+            </p>
             {% endfor %}
         </p>
     {% endfor %}
-    <br>
-    <p>{{ form.submit(type="submit", class="btn btn-primary") }}</p>
+    <p>
+        {{form.house_id.label}}
+        {{form.house_id(class="custom-select")}}
+    </p>
+    <p>
+        {{ form.house_password.label }}<br>
+        {{ form.house_password(class="form-control") }}<br>
+        {% for error in form.house_password.errors %}
+            <p class="alert alert-danger" role="alert">
+                {{ error }}
+            </p>
+        {% endfor %}
+    </p>
+
+    <p><br>{{ form.submit(type="submit", class="btn btn-primary") }}</p>
+
     {{message}}
 </form>
 {% endblock %}

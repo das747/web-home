@@ -1,1 +1,1 @@
-from . import switches, users, groups
+from . import switches, users, groups, houses
