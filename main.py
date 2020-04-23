@@ -179,7 +179,8 @@ def start():
         public = session.query(Switch).filter((Switch.public_edit == 1) |
                                               (Switch.public_use == 1),
                                               Switch.house_id == user.house_id).all()
-        switches = {*user.usable_switches, *user.editable_switches, *public}
+        switches = sorted({*user.usable_switches, *user.editable_switches, *public},
+                          key=lambda s: s.id)
     else:
         switches = []
     return render_template('index.html', title='smart house', switches=switches)
@@ -431,8 +432,6 @@ def send():
     handle_dialog(response, request.json)
     logging.info(f'Response: {response!r}')
     return json.dumps(response)
-
-    app.run()
 
 
 if __name__ == '__main__':
