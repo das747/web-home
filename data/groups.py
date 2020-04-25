@@ -19,6 +19,7 @@ class Group(SqlAlchemyBase):
     house_id = sqlalchemy.Column(sqlalchemy.Integer, sqlalchemy.ForeignKey('houses.id'))
     public_edit = sqlalchemy.Column(sqlalchemy.Boolean)
     public_use = sqlalchemy.Column(sqlalchemy.Boolean)
+    status = sqlalchemy.Column(sqlalchemy.Boolean)
     switches = orm.relationship('Switch', secondary='switches_to_groups', back_populates='groups')
     users = orm.relationship('User', secondary='users_to_groups', back_populates='usable_groups')
     editors = orm.relationship('User', secondary='editors_to_groups', back_populates='editable_groups')

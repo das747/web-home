@@ -2,7 +2,7 @@
 
 {% block content %}
 	{% if current_user.is_authenticated %}
-		<h1>Модули умного дома</h1>
+		<h1>{% if type=='switch' %}Модули{% else %}Группы модулей{% endif %} умного дома</h1>
 		<p>
 			<a href="/add_{% if type=='switch' %}switch{% else %}group{% endif %}" type="button" class="btn btn-info">Добавить</a>
 		</p>

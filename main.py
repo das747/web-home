@@ -73,7 +73,8 @@ class GroupForm(FlaskForm):
     title = StringField('Название', validators=[DataRequired()])
     switches = MultiCheckboxField('Выбор модулей', coerce=int)
     users = MultiCheckboxField('Кто может использовать (если не выбрать доступно всем)', coerce=int)
-    editors = MultiCheckboxField('Кто может редактировать (если не выбрать доступно всем)', coerce=int)
+    editors = MultiCheckboxField('Кто может редактировать (если не выбрать доступно всем)',
+                                 coerce=int)
     submit = SubmitField('Сохранить')
 
 
@@ -294,6 +295,27 @@ def delete_switch(switch_id):
         if switch.public_edit or current_user in switch.editors:
             session.delete(switch)
             session.commit()
+            return redirect('/')
+        else:
+            abort(403)
+    else:
+        abort(404)
+
+
+@app.route('/set_switch/<int:device_id>/<int:state>', methods=['GET', 'POST'])
+@login_required
+def turn_light(device_id, state):
+    session = db_session.create_session()
+    user = session.query(User).filter(User.id == current_user.id).first()
+    switch = session.query(Switch).filter(Switch.id == device_id).first()
+    if switch:
+        if switch.public_use or user in switch.users:
+            switch.status = state
+            if not state:
+                for group in switch.groups:
+                    group.status = state
+            session.commit()
+        #     post(switch.house.web_hook, json={'port': switch.port, 'status': switch.status})
         else:
             abort(403)
     else:
@@ -422,7 +444,7 @@ def edit_group(group_id):
     form.editors.choices = all_users
     form.users.choices = all_users
     usable_switches = user.usable_switches + session.query(Switch).filter(
-        Switch.public_use == 1, Switch.house_id == user.house_id).all()
+            Switch.public_use == 1, Switch.house_id == user.house_id).all()
     form.switches.choices = [(s.id, s.title) for s in usable_switches]
     group = session.query(Group).filter(Group.id == group_id).first()
     if group:
@@ -476,6 +498,41 @@ def edit_group(group_id):
         abort(404)
 
 
+@app.route('/delete_group/<int:group_id>')
+@login_required
+def delete_group(group_id):
+    session = db_session.create_session()
+    group = session.query(Group).filter(Group.id == group_id).first()
+    if group:
+        if current_user in group.editors or group.public_edit:
+            session.delete(group)
+            session.commit()
+            return redirect('/groups_list')
+        else:
+            abort(403)
+    abort(404)
+
+
+@app.route('/set_group/<int:group_id>/<int:state>')
+@login_required
+def set_group(group_id, state):
+    session = db_session.create_session()
+    group = session.query(Group).filter(Group.id == group_id).first()
+    if group:
+        if current_user in group.users or group.public_use:
+            for switch in group.switches:
+                switch.status = state
+            group.status = state
+            session.merge(group)
+            session.commit()
+            #     post(switch.house.web_hook, json={'port': switch.port, 'status': switch.status})
+            return redirect('/groups_list')
+        else:
+            abort(403)
+    else:
+        abort(404)
+
+
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     form = RegisterForm()
@@ -523,24 +580,6 @@ def login():
 def logout():
     logout_user()
     return redirect("/")
-
-
-@app.route('/set_switch/<int:device_id>/<int:status>', methods=['GET', 'POST'])
-@login_required
-def turn_light(device_id, status):
-    session = db_session.create_session()
-    user = session.query(User).filter(User.id == current_user.id).first()
-    switch = session.query(Switch).filter(Switch.id == device_id).first()
-    if switch:
-        if switch.public_use or user in switch.users:
-            switch.status = status
-            session.commit()
-        #     post(switch.house.web_hook, json={'port': switch.port, 'status': switch.status})
-        else:
-            abort(403)
-    else:
-        abort(404)
-    return redirect('/')
 
 
 @app.route('/post', methods=['POST'])
