@@ -69,6 +69,14 @@ class HouseEditForm(FlaskForm):
     submit = SubmitField('Сохранить')
 
 
+class GroupForm(FlaskForm):
+    title = StringField('Название', validators=[DataRequired()])
+    switches = MultiCheckboxField('Выбор модулей', coerce=int)
+    users = MultiCheckboxField('Кто может использовать (если не выбрать доступно всем)', coerce=int)
+    editors = MultiCheckboxField('Кто может редактировать (если не выбрать доступно всем)', coerce=int)
+    submit = SubmitField('Сохранить')
+
+
 class HouseRegisterForm(FlaskForm):
     title = StringField('Название', validators=[DataRequired()])
     address = StringField('WebHook адрес', validators=[DataRequired()])
@@ -183,7 +191,7 @@ def start():
                           key=lambda s: s.id)
     else:
         switches = []
-    return render_template('index.html', title='smart house', switches=switches)
+    return render_template('index.html', title='Smart house', items=switches, type='switch')
 
 
 @app.route('/add_switch', methods=['GET', 'POST'])
@@ -196,7 +204,6 @@ def add_switch():
     form.users.choices = all_users
     form.editors.choices = all_users
     if form.validate_on_submit():
-        session = db_session.create_session()
         if session.query(Switch).filter(Switch.title == form.title.data,
                                         Switch.house_id == current_user.house_id).first():
             return render_template('switch.html', title='Добавление модуля', form=form,
@@ -238,6 +245,7 @@ def edit_switch(switch_id):
                 form.port.data = switch.port
                 form.editors.data = [user.id for user in switch.editors]
                 form.users.data = [user.id for user in switch.users]
+                return render_template('switch.html', title='Редактирование модуля', form=form)
 
             elif form.validate_on_submit():
                 if session.query(Switch).filter(Switch.title == form.title.data,
@@ -271,11 +279,10 @@ def edit_switch(switch_id):
                 session.merge(switch)
                 session.commit()
                 return redirect('/')
-            else:
-                abort(403)
         else:
-            abort(404)
-    return render_template('switch.html', title='Редактирование модуля', form=form)
+            abort(403)
+    else:
+        abort(404)
 
 
 @app.route('/delete_switch/<int:switch_id>', methods=['GET'])
@@ -346,6 +353,123 @@ def edit_house(house_id):
                 house.web_hook = form.address.data
                 session.commit()
                 return redirect('/')
+        else:
+            abort(403)
+    else:
+        abort(404)
+
+
+@app.route('/groups_list')
+def list_groups():
+    session = db_session.create_session()
+    if current_user.is_authenticated:
+        user = session.query(User).filter(User.id == current_user.id).first()
+        public = session.query(Group).filter((Group.public_edit == 1) |
+                                             (Group.public_use == 1),
+                                             Group.house_id == user.house_id).all()
+        groups = sorted({*user.usable_groups, *user.editable_groups, *public},
+                        key=lambda s: s.id)
+    else:
+        groups = []
+    return render_template('index.html', title='Smart house', items=groups, type='group')
+
+
+@app.route('/add_group', methods=['GET', 'POST'])
+@login_required
+def add_group():
+    session = db_session.create_session()
+    user = session.query(User).filter(User.id == current_user.id).first()
+    form = GroupForm()
+    house_users = [(user.id, user.name) for user in
+                   session.query(User).filter(User.house_id == user.house_id).all()]
+    form.users.choices = house_users
+    form.editors.choices = house_users
+    usable_switches = user.usable_switches + session.query(Switch).filter(
+            Switch.public_use == 1, Switch.house_id == user.house_id).all()
+    form.switches.choices = [(s.id, s.title) for s in usable_switches]
+    if form.validate_on_submit():
+        if session.query(Group).filter(Group.title == form.title.data,
+                                       Group.house_id == user.house_id).first():
+            return render_template('group.html', title='Добавление группы', form=form,
+                                   message='Имя группы уже занято')
+        elif not form.switches.data:
+            return render_template('group.html', title='Добавление группы', form=form,
+                                   message='Не выбран ни один модуль')
+        group = Group(title=form.title.data, house_id=user.house_id)
+        session.add(group)
+        for user_id in form.editors.data:
+            group.editors.append(session.query(User).filter(User.id == user_id).first())
+        for user_id in form.users.data:
+            group.users.append(session.query(User).filter(User.id == user_id).first())
+        for switch_id in form.switches.data:
+            group.switches.append(session.query(Switch).filter(Switch.id == switch_id).first())
+        group.public_use = not bool(group.users)
+        group.public_edit = not bool(group.editors)
+        session.merge(group)
+        session.commit()
+        return redirect('/groups_list')
+    return render_template('group.html', title='Добавление группы', form=form)
+
+
+@app.route('/edit_group/<int:group_id>', methods=['GET', 'POST'])
+@login_required
+def edit_group(group_id):
+    form = GroupForm()
+    session = db_session.create_session()
+    user = session.query(User).filter(User.id == current_user.id).first()
+    all_users = [(user.id, user.name) for user in
+                 session.query(User).filter(User.house_id == current_user.house_id).all()]
+    form.editors.choices = all_users
+    form.users.choices = all_users
+    usable_switches = user.usable_switches + session.query(Switch).filter(
+        Switch.public_use == 1, Switch.house_id == user.house_id).all()
+    form.switches.choices = [(s.id, s.title) for s in usable_switches]
+    group = session.query(Group).filter(Group.id == group_id).first()
+    if group:
+        if current_user in group.editors or group.public_edit:
+            if request.method == 'GET':
+                form.title.data = group.title
+                form.editors.data = [user.id for user in group.editors]
+                form.users.data = [user.id for user in group.users]
+                form.switches.data = [switch.id for switch in group.switches]
+                return render_template('group.html', title='Редактирование группы', form=form)
+
+            elif form.validate_on_submit():
+                if session.query(Group).filter(Group.title == form.title.data,
+                                               Group.id != group_id,
+                                               Group.house_id == group.house_id).first():
+                    return render_template('group.html', title='Редактирования группы',
+                                           form=form, message='Имя группы уже занято')
+                elif not form.switches.data:
+                    return render_template('group.html', title='Редактирования группы',
+                                           form=form, message='В группе нет ни одного модуля')
+                group.title = form.title.data
+                for user in group.users:
+                    if user.id not in form.users.data:
+                        group.users.remove(user)
+                for user_id in form.users.data:
+                    user = session.query(User).filter(User.id == user_id).first()
+                    if user not in group.users:
+                        group.users.append(user)
+                for user in group.editors:
+                    if user.id not in form.editors.data:
+                        group.editors.remove(user)
+                for user_id in form.editors.data:
+                    user = session.query(User).filter(User.id == user_id).first()
+                    if user not in group.editors:
+                        group.editors.append(user)
+                for switch in group.switches:
+                    if switch.id not in form.switches.data:
+                        group.switches.remove(switch)
+                for switch_id in form.switches.data:
+                    switch = session.query(Switch).filter(Switch.id == switch_id).first()
+                    if switch not in group.switches:
+                        group.switches.append(switch)
+                group.public_edit = not bool(group.editors)
+                group.public_use = not bool(group.users)
+                session.merge(group)
+                session.commit()
+                return redirect('/groups_list')
         else:
             abort(403)
     else:

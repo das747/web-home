@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block content %}
+    <h1>Добавление группы</h1>
+<form action="" method="post">
+    {{ form.hidden_tag() }}
+    {{ form.csrf_token }}
+
+    <p>
+        {{ form.title.label }}<br>
+        {{ form.title(class="form-control") }}<br>
+        {% for error in form.title.errors %}
+            <p class="alert alert-danger" role="alert">
+                {{ error }}
+            </p>
+        {% endfor %}
+    </p>
+    <div class="dropdown">
+        <button class="btn btn-outline-info dropdown-toggle" type="button"
+        id="dropdownMenu3" data-toggle="dropdown"
+        aria-haspopup="true" aria-expanded="true">
+            {{form.switches.label}}
+            <span class="caret"></span>
+        </button>
+        <ul class="dropdown-menu checkbox-menu allow-focus" aria-labelledby="dropdownMenu3">
+            {% for option in form.switches %}
+                <li>
+                    <label>
+                        {{option()}} {{option.label}}
+                    </label>
+                </li>
+            {% endfor %}
+        </ul>
+    </div>
+    <br>
+    <div class="dropdown">
+        <button class="btn btn-outline-success dropdown-toggle" type="button"
+        id="dropdownMenu1" data-toggle="dropdown"
+        aria-haspopup="true" aria-expanded="true">
+            {{form.users.label}}
+            <span class="caret"></span>
+        </button>
+        <ul class="dropdown-menu checkbox-menu allow-focus" aria-labelledby="dropdownMenu1">
+            {% for option in form.users %}
+                <li>
+                    <label>
+                        {{option()}} {{option.label}}
+                    </label>
+                </li>
+            {% endfor %}
+        </ul>
+    </div>
+    <br>
+    <div class="dropdown">
+        <button class="btn btn-outline-warning dropdown-toggle" type="button"
+              id="dropdownMenu2" data-toggle="dropdown"
+              aria-haspopup="true" aria-expanded="true">
+            {{form.editors.label}}
+            <span class="caret"></span>
+        </button>
+        <ul class="dropdown-menu checkbox-menu allow-focus" aria-labelledby="dropdownMenu2">
+            {% for option in form.editors %}
+                <li>
+                    <label>
+                        {{option()}} {{option.label}}
+                    </label>
+                </li>
+            {% endfor %}
+        </ul>
+    </div>
+    <br>
+    <p>{{ form.submit(type="submit", class="btn btn-primary") }}</p>
+    {{message}}
+</form>
+
+{% endblock %}

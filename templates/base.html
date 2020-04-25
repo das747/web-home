@@ -20,7 +20,7 @@
 	{% if current_user.is_authenticated %}
         <p>
             <a class="btn btn-info" href="/">Модули</a>
-            <a class="btn btn-info" href="/groups_list">Группы</a>
+            <a class="btn btn-info" href="/groups_list">Группы модулей</a>
             <a class="btn btn-outline-warning" href="/edit_house/{{current_user.house_id}}">Изменить умный дом</a>
     	    <a class="btn btn-outline-primary" href="/logout">{{ current_user.name }}</a>
         </p>
