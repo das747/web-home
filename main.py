@@ -161,7 +161,8 @@ def handle_dialog(res, req):
         user = sessionStorage[user_id]['user']
         for switch in user.usable_switches:
             module = session.query(Switch).filter(Switch.id == switch.id).first()
-            res['response']['text'] += str(module.title) + ' ' + str(module.status) + '\n'
+            res['response']['text'] += str(module.title) + ': ' + 'включен' * module.status + 'выключен' * (
+                        1 - module.status) + '\n'
         return
 
     if 'включить' in req['request']['command'].lower():
