@@ -106,25 +106,66 @@ def handle_dialog(res, req):
             if user and user.check_password(password):
                 sessionStorage[user_id]['user'] = user
                 sessionStorage[user_id]['log_in'] = True
-                res['response']['text'] = 'Вы вошли'
+                res['response']['text'] = '''Вы вошли
+                чтобы узнать список команд напишите Help'''
+                res['response']['buttons'] = [
+                    {
+                        'title': 'Выйти',
+                        'hide': True
+                    },
+                    {
+                        'title': 'Help',
+                        'hide': True
+                    },
+                    {
+                        'title': 'Состояние модулей',
+                        'hide': True
+                    }
+                ]
+
                 print(req['request']['command'], sessionStorage[user_id]['log_in'])
                 return
             else:
                 res['response']['text'] = 'Вы неправильно ввели логин или пароль'
         return
 
-    elif req['request']['command'].lower() == 'выйти':
+    res['response']['buttons'] = [
+        {
+            'title': 'Выйти',
+            'hide': True
+        },
+        {
+            'title': 'Help',
+            'hide': True
+        },
+        {
+            'title': 'Состояние модулей',
+            'hide': True
+        }
+    ]
+
+    if req['request']['command'].lower() == 'выйти':
         res['response']['text'] = 'Вы вышли'
         sessionStorage[user_id]['user'] = None
         sessionStorage[user_id]['log_in'] = False
+        res['response']['buttons'] = []
         return
 
-    elif req['request']['command'].lower() == 'help':
+    if req['request']['command'].lower() == 'help':
         res['response']['text'] = '''Включить <Название модуля>
-            Выключить <Название модуля>'''
+            Выключить <Название модуля>
+            Состояние модулей(список модулей и их состояние)'''
+        return
+    if 'состояние модулей' in req['request']['command'].lower():
+        res['response']['text'] = ''
+        user = sessionStorage[user_id]['user']
+        for switch in user.usable_switches:
+            module = session.query(Switch).filter(Switch.id == switch.id).first()
+            res['response']['text'] += str(module.title) + ' ' + str(module.status) + '\n'
         return
 
-    elif 'включить' in req['request']['command'].lower():
+    if 'включить' in req['request']['command'].lower():
+        session = db_session.create_session()
         pos = req['request']['command'].lower().find('включить')
         target = req['request']['command'][pos + 9:].lower().strip()
         print(target)
@@ -134,20 +175,26 @@ def handle_dialog(res, req):
             if len(target.split()) > 1 and target.split()[0] == 'группу':
                 res['response']['text'] = 'Я ещё не работаю с группами'
             else:
+
                 for switch in user.usable_switches:
                     if switch.title == target:
-                        switch.status = True
+                        module = session.query(Switch).filter(Switch.id == switch.id).first()
+                        module.status = True
                         res['response']['text'] = 'Включила!'
-                        break
-            session.commit()
-            print('включила')
+                        session.commit()
+                        print(module.title)
+                        print(module.status)
+                        return
+
+                print('включила')
         else:
             res['response']['text'] = 'Что включить?'
         return
 
     elif 'выключить' in req['request']['command'].lower():
-        pos = req['request']['command'].lower().find('включить')
-        target = req['request']['command'][pos + 11:].lower().strip()
+        session = db_session.create_session()
+        pos = req['request']['command'].lower().find('выключить')
+        target = req['request']['command'][pos + 10:].lower().strip()
         print(target)
         if target:
             res['response']['text'] = 'Не смогла найти'
@@ -157,16 +204,19 @@ def handle_dialog(res, req):
             else:
                 for switch in user.usable_switches:
                     if switch.title == target:
-                        switch.status = False
+                        module = session.query(Switch).filter(Switch.id == switch.id).first()
+                        module.status = False
                         res['response']['text'] = 'Выключила!'
-                        break
-            session.commit()
-            print('выключила')
+                        session.commit()
+                        print(module.title)
+                        print(module.status)
+                        return
+
+                print('выключила')
         else:
             res['response']['text'] = 'Что выключить?'
         return
     res['response']['text'] = 'Я не знаю этой команды, чтобы узнать список команд, напишите help'
-
 
 db_session.global_init("db/smart_house.db")
 
