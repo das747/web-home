@@ -4,6 +4,7 @@ from requests import post
 from flask import Flask, request, render_template
 import logging
 import json
+import os
 
 from flask_login import LoginManager, login_user, login_required, current_user, logout_user
 from flask_wtf import FlaskForm
@@ -31,6 +32,10 @@ sessionStorage = defaultdict(lambda: None)
 app.config['SECRET_KEY'] = 'yandexlyceum_secret_key'
 login_manager = LoginManager()
 login_manager.init_app(app)
+
+if not os.access('./db', os.F_OK):
+    os.mkdir('./db')
+db_session.global_init("db/smart_house.db")
 
 
 @login_manager.user_loader
@@ -177,7 +182,7 @@ def handle_dialog(res, req):
     res['response']['text'] = 'Я не знаю этой команды, чтобы узнать список команд, напишите help'
 
 
-db_session.global_init("db/smart_house.db")
+
 
 
 @app.route("/", methods=['GET'])
