@@ -1,7 +1,6 @@
 from flask import Blueprint, request
 import hmac
-from hashlib import sha1
-import os
+import subprocess
 
 SUPER_SECRET_KEY = open('deploy_secret_key.txt', mode='r').read().strip()
 blueprint = Blueprint('autodeployment', __name__, template_folder='templates')
@@ -21,9 +20,9 @@ def autodeploy():
     if request.data:
         hasher = hmac.new(SUPER_SECRET_KEY.encode('utf-8'), msg=request.data, digestmod='sha1')
         res += '\n' + hasher.hexdigest()
-        if not hmac.compare_digest(hasher.hexdigest(), signature):
+        if (not hmac.compare_digest(hasher.hexdigest(), signature)
+                or request.json['ref'].split('/', 2)[2] != 'deploy'):
             return res + '\nSomething went wrong'
-        os.system('git pull && sudo systemctl restart webhome')
-    else:
-        return res + 'xcvhbjknlm;'
-
+        subprocess.call(['/usr/bin/git', 'pull'])
+        subprocess.call(['/usr/bin/sudo', 'systemctl', 'restart', 'webhome'])
+        return res
