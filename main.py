@@ -14,6 +14,7 @@ from wtforms import (PasswordField, SubmitField, BooleanField, StringField, Sele
 from wtforms.fields.html5 import EmailField
 from wtforms.validators import DataRequired
 
+import autodeploy
 import house_resource
 from flask_restful import Api, abort
 from data import db_session
@@ -26,6 +27,7 @@ app = Flask(__name__)
 logging.basicConfig(level=logging.INFO,
                     format='%(filename)s --> %(levelname)s: %(message)s')
 api = Api(app)
+app.register_blueprint(autodeploy.blueprint)
 # api.add_resource(house_resource.HouseResource, '/api/v2/func/<device_id>/<int:status>')
 
 sessionStorage = defaultdict(lambda: None)
