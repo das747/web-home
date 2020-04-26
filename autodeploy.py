@@ -1,17 +1,29 @@
 from flask import Blueprint, request
 import hmac
+from hashlib import sha1
 import os
 
-SUPER_SECRET_KEY = bytes(open('deploy_secret_key.txt', mode='r').read(), 'utf8')
+SUPER_SECRET_KEY = open('deploy_secret_key.txt', mode='r').read().strip()
 blueprint = Blueprint('autodeployment', __name__, template_folder='templates')
 
 
 @blueprint.route('/deploy', methods=['POST'])
 def autodeploy():
-    hex_digest = request.headers['X-Hub-Signature']
-    payload = request.json
-    hasher = hmac.new(SUPER_SECRET_KEY, request.data, 'sha1')
-    if (hmac.compare_digest(hex_digest, hasher.hexdigest())
-            and payload['refs'].split('/', 2)[2] == 'deploy'):
+    res = SUPER_SECRET_KEY
+    header_hex_digest = request.headers.get('X-Hub-Signature')
+    if header_hex_digest is None:
+        return 'No hash header'
+    sha_name, signature = header_hex_digest.split('=')
+
+    if sha_name != 'sha1':
+        return 'Wrong sha type'
+    res += '\n' + signature
+    if request.data:
+        hasher = hmac.new(SUPER_SECRET_KEY.encode('utf-8'), msg=request.data, digestmod='sha1')
+        res += '\n' + hasher.hexdigest()
+        if not hmac.compare_digest(hasher.hexdigest(), signature):
+            return res + '\nSomething went wrong'
         os.system('git pull && sudo systemctl restart webhome')
+    else:
+        return res + 'xcvhbjknlm;'
 
