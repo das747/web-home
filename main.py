@@ -120,7 +120,7 @@ def handle_dialog(res, req):
             email, password = req['request']['command'].split()[0], \
                               req['request']['command'].split()[1]
             user = session.query(User).filter(User.email == email).first()
-            print(user.name, user.check_password(password), generate_password_hash(password))
+            # print(user.name, user.check_password(password), generate_password_hash(password))
             if user and user.check_password(password):
                 sessionStorage[user_id]['user'] = user
                 sessionStorage[user_id]['log_in'] = True
@@ -172,8 +172,11 @@ def handle_dialog(res, req):
     if req['request']['command'].lower() == 'help':
         res['response']['text'] = '''Включить <Название модуля>
             Выключить <Название модуля>
+            Включить группу <Название группы>
+            Выключить группу <Название группы>
             Состояние модулей(список модулей и их состояние)'''
         return
+
     if 'состояние модулей' in req['request']['command'].lower():
         res['response']['text'] = ''
         user = sessionStorage[user_id]['user']
@@ -219,6 +222,9 @@ def handle_dialog(res, req):
                         print(module.title)
                         print(module.status)
                         return
+                res['response']['text'] = 'Я не смогла найти такой модуль, возможно вы ввели' \
+                                          ' неправильное название модуля,' \
+                                          ' или вы не можете им управлять'
 
                 print('включила')
         else:
@@ -259,6 +265,9 @@ def handle_dialog(res, req):
                         print(module.title)
                         print(module.status)
                         return
+                res['response']['text'] = 'Я не смогла найти такой модуль, возможно вы ввели' \
+                                          ' неправильное название модуля,' \
+                                          ' или вы не можете им управлять'
 
                 print('выключила')
         else:
