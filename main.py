@@ -28,7 +28,8 @@ logging.basicConfig(level=logging.INFO,
                     format='%(filename)s --> %(levelname)s: %(message)s')
 api = Api(app)
 app.register_blueprint(autodeploy.blueprint)
-# api.add_resource(house_resource.HouseResource, '/api/v2/func/<device_id>/<int:status>')
+api.add_resource(house_resource.HouseResource, '/api/house/<int:house_id>')
+api.add_resource(house_resource.HouseListResource, '/api/house')
 
 sessionStorage = defaultdict(lambda: None)
 app.config['SECRET_KEY'] = 'yandexlyceum_secret_key'
