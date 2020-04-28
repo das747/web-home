@@ -4,6 +4,7 @@ from requests import post
 from flask import Flask, request, render_template
 import logging
 import json
+import os
 
 from flask_login import LoginManager, login_user, login_required, current_user, logout_user
 from flask_wtf import FlaskForm
@@ -13,6 +14,7 @@ from wtforms import (PasswordField, SubmitField, BooleanField, StringField, Sele
 from wtforms.fields.html5 import EmailField
 from wtforms.validators import DataRequired
 
+import autodeploy
 import house_resource
 from flask_restful import Api, abort
 from data import db_session
@@ -25,12 +27,17 @@ app = Flask(__name__)
 logging.basicConfig(level=logging.INFO,
                     format='%(filename)s --> %(levelname)s: %(message)s')
 api = Api(app)
-# api.add_resource(house_resource.HouseResource, '/api/v2/func/<device_id>/<int:status>')
+app.register_blueprint(autodeploy.blueprint)
+api.add_resource(house_resource.HouseResource, '/api/v2/func/<device_id>/<int:status>')
 
 sessionStorage = defaultdict(lambda: None)
 app.config['SECRET_KEY'] = 'yandexlyceum_secret_key'
 login_manager = LoginManager()
 login_manager.init_app(app)
+
+if not os.access('./db', os.F_OK):
+    os.mkdir('./db')
+db_session.global_init("db/smart_house.db")
 
 
 @login_manager.user_loader
@@ -53,8 +60,8 @@ class MultiCheckboxField(SelectMultipleField):
 
 class SwitchForm(FlaskForm):
     title = StringField(
-            'Название модуля(называйте модуль, чтобы всегда было понятно за что он отвечает)',
-            validators=[DataRequired()])
+        'Название модуля(называйте модуль, чтобы всегда было понятно за что он отвечает)',
+        validators=[DataRequired()])
     port = IntegerField('Номер порта', validators=[DataRequired()])
     users = MultiCheckboxField('Кто может использовать (если не выбрать доступно всем)', coerce=int)
     editors = MultiCheckboxField('Кто может редактировать (если не выбрать доступно всем)',
@@ -66,6 +73,15 @@ class HouseEditForm(FlaskForm):
     title = StringField('Название', validators=[DataRequired()])
     address = StringField('WebHook адрес', validators=[DataRequired()])
     password = PasswordField('Пароль', validators=[DataRequired()])
+    submit = SubmitField('Сохранить')
+
+
+class GroupForm(FlaskForm):
+    title = StringField('Название', validators=[DataRequired()])
+    switches = MultiCheckboxField('Выбор модулей', coerce=int)
+    users = MultiCheckboxField('Кто может использовать (если не выбрать доступно всем)', coerce=int)
+    editors = MultiCheckboxField('Кто может редактировать (если не выбрать доступно всем)',
+                                 coerce=int)
     submit = SubmitField('Сохранить')
 
 
@@ -92,8 +108,9 @@ def handle_dialog(res, req):
     user_id = req['session']['user_id']
     if req['session']['new']:
         sessionStorage[user_id] = {'log_in': False, 'user': None}
+        res['response']['text'] = 'Привет, я помощник для умного дома'
+        return
     res['response']['text'] = 'Nothing'
-    print(req['request']['command'], sessionStorage[user_id]['log_in'])
     res['response']['buttons'] = []
     if not sessionStorage[user_id]['log_in']:
         res['response']['text'] = 'Я не могу вам помочь, пока вы не войдете,' \
@@ -161,8 +178,9 @@ def handle_dialog(res, req):
         user = sessionStorage[user_id]['user']
         for switch in user.usable_switches:
             module = session.query(Switch).filter(Switch.id == switch.id).first()
-            res['response']['text'] += str(module.title) + ': ' + 'включен' * module.status + 'выключен' * (
-                        1 - module.status) + '\n'
+            res['response']['text'] += str(
+                module.title) + ': ' + 'включен' * module.status + 'выключен' * (
+                                               1 - module.status) + '\n'
         return
 
     if 'включить' in req['request']['command'].lower():
@@ -174,7 +192,21 @@ def handle_dialog(res, req):
             res['response']['text'] = 'Не смогла найти'
             user = sessionStorage[user_id]['user']
             if len(target.split()) > 1 and target.split()[0] == 'группу':
-                res['response']['text'] = 'Я ещё не работаю с группами'
+                target = target[6:]
+                session = db_session.create_session()
+                print(target)
+                group = session.query(Group).filter(Group.title == target).first()
+                if group and sessionStorage[user_id]['user'] in group.users or group.public_use:
+                    for switch in group.switches:
+                        switch.status = True
+                    group.status = True
+                    session.merge(group)
+                    session.commit()
+                else:
+                    res['response']['text'] = 'Я не смогла найти такую группу, возможно вы ввели' \
+                                              ' неправильное название группы,' \
+                                              ' или вы не можете ей управлять'
+
             else:
 
                 for switch in user.usable_switches:
@@ -201,7 +233,21 @@ def handle_dialog(res, req):
             res['response']['text'] = 'Не смогла найти'
             user = sessionStorage[user_id]['user']
             if len(target.split()) > 1 and target.split()[0] == 'группу':
-                res['response']['text'] = 'Я ещё не работаю с группами'
+                if len(target.split()) > 1 and target.split()[0] == 'группу':
+                    target = target[6:]
+                    session = db_session.create_session()
+                    print(target)
+                    group = session.query(Group).filter(Group.title == target).first()
+                    if group and sessionStorage[user_id]['user'] in group.users or group.public_use:
+                        for switch in group.switches:
+                            switch.status = False
+                        group.status = False
+                        session.merge(group)
+                        session.commit()
+                    else:
+                        res['response']['text'] = 'Я не смогла найти такую группу, возможно вы ввели' \
+                                                  ' неправильное название группы,' \
+                                                  ' или вы не можете ей управлять'
             else:
                 for switch in user.usable_switches:
                     if switch.title == target:
@@ -219,8 +265,6 @@ def handle_dialog(res, req):
         return
     res['response']['text'] = 'Я не знаю этой команды, чтобы узнать список команд, напишите help'
 
-db_session.global_init("db/smart_house.db")
-
 
 @app.route("/", methods=['GET'])
 def start():
@@ -234,7 +278,7 @@ def start():
                           key=lambda s: s.id)
     else:
         switches = []
-    return render_template('index.html', title='smart house', switches=switches)
+    return render_template('index.html', title='Smart house', items=switches, type='switch')
 
 
 @app.route('/add_switch', methods=['GET', 'POST'])
@@ -247,7 +291,6 @@ def add_switch():
     form.users.choices = all_users
     form.editors.choices = all_users
     if form.validate_on_submit():
-        session = db_session.create_session()
         if session.query(Switch).filter(Switch.title == form.title.data,
                                         Switch.house_id == current_user.house_id).first():
             return render_template('switch.html', title='Добавление модуля', form=form,
@@ -289,6 +332,7 @@ def edit_switch(switch_id):
                 form.port.data = switch.port
                 form.editors.data = [user.id for user in switch.editors]
                 form.users.data = [user.id for user in switch.users]
+                return render_template('switch.html', title='Редактирование модуля', form=form)
 
             elif form.validate_on_submit():
                 if session.query(Switch).filter(Switch.title == form.title.data,
@@ -322,11 +366,10 @@ def edit_switch(switch_id):
                 session.merge(switch)
                 session.commit()
                 return redirect('/')
-            else:
-                abort(403)
         else:
-            abort(404)
-    return render_template('switch.html', title='Редактирование модуля', form=form)
+            abort(403)
+    else:
+        abort(404)
 
 
 @app.route('/delete_switch/<int:switch_id>', methods=['GET'])
@@ -338,6 +381,27 @@ def delete_switch(switch_id):
         if switch.public_edit or current_user in switch.editors:
             session.delete(switch)
             session.commit()
+            return redirect('/')
+        else:
+            abort(403)
+    else:
+        abort(404)
+
+
+@app.route('/set_switch/<int:device_id>/<int:state>', methods=['GET', 'POST'])
+@login_required
+def turn_light(device_id, state):
+    session = db_session.create_session()
+    user = session.query(User).filter(User.id == current_user.id).first()
+    switch = session.query(Switch).filter(Switch.id == device_id).first()
+    if switch:
+        if switch.public_use or user in switch.users:
+            switch.status = state
+            if not state:
+                for group in switch.groups:
+                    group.status = state
+            session.commit()
+        #     post(switch.house.web_hook, json={'port': switch.port, 'status': switch.status})
         else:
             abort(403)
     else:
@@ -403,6 +467,158 @@ def edit_house(house_id):
         abort(404)
 
 
+@app.route('/groups_list')
+def list_groups():
+    session = db_session.create_session()
+    if current_user.is_authenticated:
+        user = session.query(User).filter(User.id == current_user.id).first()
+        public = session.query(Group).filter((Group.public_edit == 1) |
+                                             (Group.public_use == 1),
+                                             Group.house_id == user.house_id).all()
+        groups = sorted({*user.usable_groups, *user.editable_groups, *public},
+                        key=lambda s: s.id)
+    else:
+        groups = []
+    return render_template('index.html', title='Smart house', items=groups, type='group')
+
+
+@app.route('/add_group', methods=['GET', 'POST'])
+@login_required
+def add_group():
+    session = db_session.create_session()
+    user = session.query(User).filter(User.id == current_user.id).first()
+    form = GroupForm()
+    house_users = [(user.id, user.name) for user in
+                   session.query(User).filter(User.house_id == user.house_id).all()]
+    form.users.choices = house_users
+    form.editors.choices = house_users
+    usable_switches = user.usable_switches + session.query(Switch).filter(
+        Switch.public_use == 1, Switch.house_id == user.house_id).all()
+    form.switches.choices = [(s.id, s.title) for s in usable_switches]
+    if form.validate_on_submit():
+        if session.query(Group).filter(Group.title == form.title.data,
+                                       Group.house_id == user.house_id).first():
+            return render_template('group.html', title='Добавление группы', form=form,
+                                   message='Имя группы уже занято')
+        elif not form.switches.data:
+            return render_template('group.html', title='Добавление группы', form=form,
+                                   message='Не выбран ни один модуль')
+        group = Group(title=form.title.data, house_id=user.house_id)
+        session.add(group)
+        for user_id in form.editors.data:
+            group.editors.append(session.query(User).filter(User.id == user_id).first())
+        for user_id in form.users.data:
+            group.users.append(session.query(User).filter(User.id == user_id).first())
+        for switch_id in form.switches.data:
+            group.switches.append(session.query(Switch).filter(Switch.id == switch_id).first())
+        group.public_use = not bool(group.users)
+        group.public_edit = not bool(group.editors)
+        session.merge(group)
+        session.commit()
+        return redirect('/groups_list')
+    return render_template('group.html', title='Добавление группы', form=form)
+
+
+@app.route('/edit_group/<int:group_id>', methods=['GET', 'POST'])
+@login_required
+def edit_group(group_id):
+    form = GroupForm()
+    session = db_session.create_session()
+    user = session.query(User).filter(User.id == current_user.id).first()
+    all_users = [(user.id, user.name) for user in
+                 session.query(User).filter(User.house_id == current_user.house_id).all()]
+    form.editors.choices = all_users
+    form.users.choices = all_users
+    usable_switches = user.usable_switches + session.query(Switch).filter(
+        Switch.public_use == 1, Switch.house_id == user.house_id).all()
+    form.switches.choices = [(s.id, s.title) for s in usable_switches]
+    group = session.query(Group).filter(Group.id == group_id).first()
+    if group:
+        if current_user in group.editors or group.public_edit:
+            if request.method == 'GET':
+                form.title.data = group.title
+                form.editors.data = [user.id for user in group.editors]
+                form.users.data = [user.id for user in group.users]
+                form.switches.data = [switch.id for switch in group.switches]
+                return render_template('group.html', title='Редактирование группы', form=form)
+
+            elif form.validate_on_submit():
+                if session.query(Group).filter(Group.title == form.title.data,
+                                               Group.id != group_id,
+                                               Group.house_id == group.house_id).first():
+                    return render_template('group.html', title='Редактирования группы',
+                                           form=form, message='Имя группы уже занято')
+                elif not form.switches.data:
+                    return render_template('group.html', title='Редактирования группы',
+                                           form=form, message='В группе нет ни одного модуля')
+                group.title = form.title.data
+                for user in group.users:
+                    if user.id not in form.users.data:
+                        group.users.remove(user)
+                for user_id in form.users.data:
+                    user = session.query(User).filter(User.id == user_id).first()
+                    if user not in group.users:
+                        group.users.append(user)
+                for user in group.editors:
+                    if user.id not in form.editors.data:
+                        group.editors.remove(user)
+                for user_id in form.editors.data:
+                    user = session.query(User).filter(User.id == user_id).first()
+                    if user not in group.editors:
+                        group.editors.append(user)
+                for switch in group.switches:
+                    if switch.id not in form.switches.data:
+                        group.switches.remove(switch)
+                for switch_id in form.switches.data:
+                    switch = session.query(Switch).filter(Switch.id == switch_id).first()
+                    if switch not in group.switches:
+                        group.switches.append(switch)
+                group.public_edit = not bool(group.editors)
+                group.public_use = not bool(group.users)
+                session.merge(group)
+                session.commit()
+                return redirect('/groups_list')
+        else:
+            abort(403)
+    else:
+        abort(404)
+
+
+@app.route('/delete_group/<int:group_id>')
+@login_required
+def delete_group(group_id):
+    session = db_session.create_session()
+    group = session.query(Group).filter(Group.id == group_id).first()
+    if group:
+        if current_user in group.editors or group.public_edit:
+            session.delete(group)
+            session.commit()
+            return redirect('/groups_list')
+        else:
+            abort(403)
+    abort(404)
+
+
+@app.route('/set_group/<int:group_id>/<int:state>')
+@login_required
+def set_group(group_id, state):
+    session = db_session.create_session()
+    group = session.query(Group).filter(Group.id == group_id).first()
+    if group:
+        if current_user in group.users or group.public_use:
+            for switch in group.switches:
+                switch.status = state
+            group.status = state
+            session.merge(group)
+            session.commit()
+            #     post(switch.house.web_hook, json={'port': switch.port, 'status': switch.status})
+            return redirect('/groups_list')
+        else:
+            abort(403)
+    else:
+        abort(404)
+
+
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     form = RegisterForm()
@@ -450,24 +666,6 @@ def login():
 def logout():
     logout_user()
     return redirect("/")
-
-
-@app.route('/set_switch/<int:device_id>/<int:status>', methods=['GET', 'POST'])
-@login_required
-def turn_light(device_id, status):
-    session = db_session.create_session()
-    user = session.query(User).filter(User.id == current_user.id).first()
-    switch = session.query(Switch).filter(Switch.id == device_id).first()
-    if switch:
-        if switch.public_use or user in switch.users:
-            switch.status = status
-            session.commit()
-        #     post(switch.house.web_hook, json={'port': switch.port, 'status': switch.status})
-        else:
-            abort(403)
-    else:
-        abort(404)
-    return redirect('/')
 
 
 @app.route('/post', methods=['POST'])

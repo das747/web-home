@@ -1,34 +1,38 @@
-﻿{% extends "base.html" %}
+{% extends "base.html" %}
 
 {% block content %}
 	{% if current_user.is_authenticated %}
-		<h1>Модули умного дома</h1>
+		<h1>{% if type=='switch' %}Модули{% else %}Группы модулей{% endif %} умного дома</h1>
 		<p>
-			<a href="/add_switch" type="button" class="btn btn-info">Добавить новый модуль</a>
+			<a href="/add_{% if type=='switch' %}switch{% else %}group{% endif %}" type="button" class="btn btn-info">Добавить</a>
 		</p>
-		{% for switch in switches%}
+		{% for item in items %}
 			<br>
 			<div class="col-md6 border rounded">
-				<h2>{{switch.title}}</h2>
+				<h2>{{item.title}}</h2>
 				<div>
-					{% if switch.status %}
+					{% if item.status %}
 						Включен
 					{% else %}
 						Выключен
 					{% endif %}
 				</div>
-			</div><br>
-			{% if current_user in switch.editors or not switch.editors %}
-				<div style="float: right;">
-					<a href="/edit_switch/{{ switch.id }}" class="btn btn-secondary">Редактировать</a>
-					<a href="/delete_switch/{{ switch.id }}" class="btn btn-danger">Удалить</a>
-				</div>
+			</div>
+			{% if current_user in item.editors or not item.editors %}
+				<div style="float: left;">
+					<a href="/edit_{% if type=='switch' %}switch{% else %}group{% endif %}/{{ item.id }}" class="btn btn-warning">Редактировать</a>
+
+					<a href="/delete_{% if type=='switch' %}switch{% else %}group{% endif %}/{{ item.id }}" class="btn btn-outline-danger">Удалить</a>
+				        
+				</div><br><br>
+
+
 			{% endif %}
-			{% if current_user in switch.users or not switch.users %}
-				<div style="float: left">
-					<a href="/set_switch/{{ switch.id }}/1" class="btn btn-warning">Включить</a>
-					<a href="/set_switch/{{ switch.id }}/0" class="btn btn-danger">Выключить</a>
-				</div>
+			{% if current_user in item.users or not item.users %}
+				<div style="float: left;">
+					<a href="/set_{% if type=='switch' %}switch{% else %}group{% endif %}/{{ item.id }}/1" class="btn btn-success">Включить</a>
+					<a href="/set_{% if type=='switch' %}switch{% else %}group{% endif %}/{{ item.id }}/0" class="btn btn-danger">Выключить</a>
+				</div><br>
 			{% endif %}
 			<br>
 		{% endfor %}
