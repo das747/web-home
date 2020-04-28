@@ -30,6 +30,7 @@ api = Api(app)
 app.register_blueprint(autodeploy.blueprint)
 # api.add_resource(house_resource.HouseResource, '/api/v2/func/<device_id>/<int:status>')
 
+
 sessionStorage = defaultdict(lambda: None)
 app.config['SECRET_KEY'] = 'yandexlyceum_secret_key'
 login_manager = LoginManager()
@@ -60,8 +61,8 @@ class MultiCheckboxField(SelectMultipleField):
 
 class SwitchForm(FlaskForm):
     title = StringField(
-            'Название модуля(называйте модуль, чтобы всегда было понятно за что он отвечает)',
-            validators=[DataRequired()])
+        'Название модуля(называйте модуль, чтобы всегда было понятно за что он отвечает)',
+        validators=[DataRequired()])
     port = IntegerField('Номер порта', validators=[DataRequired()])
     users = MultiCheckboxField('Кто может использовать (если не выбрать доступно всем)', coerce=int)
     editors = MultiCheckboxField('Кто может редактировать (если не выбрать доступно всем)',
@@ -108,8 +109,9 @@ def handle_dialog(res, req):
     user_id = req['session']['user_id']
     if req['session']['new']:
         sessionStorage[user_id] = {'log_in': False, 'user': None}
+        res['response']['text'] = 'Привет, я помощник для умного дома'
+        return
     res['response']['text'] = 'Nothing'
-    print(req['request']['command'], sessionStorage[user_id]['log_in'])
     res['response']['buttons'] = []
     if not sessionStorage[user_id]['log_in']:
         res['response']['text'] = 'Я не могу вам помочь, пока вы не войдете,' \
@@ -191,7 +193,21 @@ def handle_dialog(res, req):
             res['response']['text'] = 'Не смогла найти'
             user = sessionStorage[user_id]['user']
             if len(target.split()) > 1 and target.split()[0] == 'группу':
-                res['response']['text'] = 'Я ещё не работаю с группами'
+                target = target[6:]
+                session = db_session.create_session()
+                print(target)
+                group = session.query(Group).filter(Group.title == target).first()
+                if group and sessionStorage[user_id]['user'] in group.users or group.public_use:
+                    for switch in group.switches:
+                        switch.status = True
+                    group.status = True
+                    session.merge(group)
+                    session.commit()
+                else:
+                    res['response']['text'] = 'Я не смогла найти такую группу, возможно вы ввели' \
+                                              ' неправильное название группы,' \
+                                              ' или вы не можете ей управлять'
+
             else:
 
                 for switch in user.usable_switches:
@@ -218,7 +234,21 @@ def handle_dialog(res, req):
             res['response']['text'] = 'Не смогла найти'
             user = sessionStorage[user_id]['user']
             if len(target.split()) > 1 and target.split()[0] == 'группу':
-                res['response']['text'] = 'Я ещё не работаю с группами'
+                if len(target.split()) > 1 and target.split()[0] == 'группу':
+                    target = target[6:]
+                    session = db_session.create_session()
+                    print(target)
+                    group = session.query(Group).filter(Group.title == target).first()
+                    if group and sessionStorage[user_id]['user'] in group.users or group.public_use:
+                        for switch in group.switches:
+                            switch.status = False
+                        group.status = False
+                        session.merge(group)
+                        session.commit()
+                    else:
+                        res['response']['text'] = 'Я не смогла найти такую группу, возможно вы ввели' \
+                                                  ' неправильное название группы,' \
+                                                  ' или вы не можете ей управлять'
             else:
                 for switch in user.usable_switches:
                     if switch.title == target:
@@ -463,8 +493,8 @@ def add_group():
                    session.query(User).filter(User.house_id == user.house_id).all()]
     form.users.choices = house_users
     form.editors.choices = house_users
-    usable_switches = user.usable_switches + session.query(Switch).filter(
-            Switch.public_use == 1, Switch.house_id == user.house_id).all()
+    usable_switches = user.usable_switches + session.query(Switch).filter(Switch.public_use == 1,
+                                                                          Switch.house_id == user.house_id).all()
     form.switches.choices = [(s.id, s.title) for s in usable_switches]
     if form.validate_on_submit():
         if session.query(Group).filter(Group.title == form.title.data,
@@ -500,8 +530,8 @@ def edit_group(group_id):
                  session.query(User).filter(User.house_id == current_user.house_id).all()]
     form.editors.choices = all_users
     form.users.choices = all_users
-    usable_switches = user.usable_switches + session.query(Switch).filter(
-            Switch.public_use == 1, Switch.house_id == user.house_id).all()
+    usable_switches = user.usable_switches + session.query(Switch).filter(Switch.public_use == 1,
+                                                                          Switch.house_id == user.house_id).all()
     form.switches.choices = [(s.id, s.title) for s in usable_switches]
     group = session.query(Group).filter(Group.id == group_id).first()
     if group:

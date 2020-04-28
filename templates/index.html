@@ -1,4 +1,4 @@
-﻿{% extends "base.html" %}
+{% extends "base.html" %}
 
 {% block content %}
 	{% if current_user.is_authenticated %}
@@ -17,18 +17,22 @@
 						Выключен
 					{% endif %}
 				</div>
-			</div><br>
+			</div>
 			{% if current_user in item.editors or not item.editors %}
-				<div style="float: right;">
+				<div style="float: left;">
 					<a href="/edit_{% if type=='switch' %}switch{% else %}group{% endif %}/{{ item.id }}" class="btn btn-warning">Редактировать</a>
+
 					<a href="/delete_{% if type=='switch' %}switch{% else %}group{% endif %}/{{ item.id }}" class="btn btn-outline-danger">Удалить</a>
-				</div>
+				        
+				</div><br><br>
+
+
 			{% endif %}
 			{% if current_user in item.users or not item.users %}
-				<div style="float: left">
+				<div style="float: left;">
 					<a href="/set_{% if type=='switch' %}switch{% else %}group{% endif %}/{{ item.id }}/1" class="btn btn-success">Включить</a>
 					<a href="/set_{% if type=='switch' %}switch{% else %}group{% endif %}/{{ item.id }}/0" class="btn btn-danger">Выключить</a>
-				</div>
+				</div><br>
 			{% endif %}
 			<br>
 		{% endfor %}
