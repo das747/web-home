@@ -113,6 +113,13 @@ def handle_dialog(res, req):
         return
     res['response']['text'] = 'Nothing'
     res['response']['buttons'] = []
+    if req['request']['command'].lower() in ['помощь', 'что ты умеешь']:
+        res['response']['text'] = 'Я навык, который поможет вам в управлении умным домом.' \
+                                  'Я могу включить и выключать модули умного дома, ' \
+                                  'сообщать вам информацию о их состоянии. ' \
+                                  'Для начала работы, вам необходимо зарегистрироваться на сайте ' \
+                                  'http://84.201.144.114/register'
+        return
     if not sessionStorage[user_id]['log_in']:
         res['response']['text'] = 'Я не могу вам помочь, пока вы не войдете,' \
                                   'чтобы войти, введите свой email и пароль(через пробел)'
