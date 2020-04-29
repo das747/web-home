@@ -142,7 +142,6 @@ def handle_dialog(res, req):
                 ]
 
                 print(req['request']['command'], sessionStorage[user_id]['log_in'])
-                return
             else:
                 res['response']['text'] = 'Вы неправильно ввели логин или пароль'
         return
@@ -185,9 +184,9 @@ def handle_dialog(res, req):
             res['response']['text'] += str(
                 module.title) + ': ' + 'включен' * module.status + 'выключен' * (
                                                1 - module.status) + '\n'
-        return
+            return
 
-        if 'включить' in req['request']['command'].lower():
+    if 'включить' in req['request']['command'].lower():
         session = db_session.create_session()
         pos = req['request']['command'].lower().find('включить')
         target = req['request']['command'][pos + 9:].lower().strip()
@@ -226,9 +225,9 @@ def handle_dialog(res, req):
                 print('включила')
         else:
             res['response']['text'] = 'Что включить?'
-        return
+            return
 
-        elif 'выключить' in req['request']['command'].lower():
+    elif 'выключить' in req['request']['command'].lower():
         session = db_session.create_session()
         pos = req['request']['command'].lower().find('выключить')
         target = req['request']['command'][pos + 10:].lower().strip()
