@@ -186,13 +186,14 @@ def handle_dialog(res, req):
     if 'состояние модулей' in req['request']['command'].lower():
         res['response']['text'] = ''
         user = sessionStorage[user_id]['user']
-        print(user.usable_switches)
+        if user.usable_swithes == []:
+            res['response']['text'] = 'У вас нет модулей умного дома'
         for switch in user.usable_switches:
             module = session.query(Switch).filter(Switch.id == switch.id).first()
             res['response']['text'] += str(
                 module.title) + ': ' + 'включен' * module.status + 'выключен' * (
                                                1 - module.status) + '\n'
-            return
+        return
 
     if 'включить' in req['request']['command'].lower():
         session = db_session.create_session()
