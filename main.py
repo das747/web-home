@@ -512,7 +512,7 @@ def add_group():
         elif not form.switches.data:
             return render_template('group.html', title='Добавление группы', form=form,
                                    message='Не выбран ни один модуль')
-        group = Group(title=form.title.data, house_id=user.house_id)
+        group = Group(title=form.title.data.lower(), house_id=user.house_id)
         session.add(group)
         for user_id in form.editors.data:
             group.editors.append(session.query(User).filter(User.id == user_id).first())
