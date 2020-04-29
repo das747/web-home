@@ -187,29 +187,29 @@ def handle_dialog(res, req):
                                                1 - module.status) + '\n'
         return
 
-    if 'включить' in req['request']['command'].lower():
+        if 'включить' in req['request']['command'].lower():
         session = db_session.create_session()
         pos = req['request']['command'].lower().find('включить')
         target = req['request']['command'][pos + 9:].lower().strip()
         print(target)
         if target:
-            res['response']['text'] = 'Не смогла найти'
             user = sessionStorage[user_id]['user']
             if len(target.split()) > 1 and target.split()[0] == 'группу':
-                target = target[6:]
+                target = target[7:]
                 session = db_session.create_session()
-                print(target)
                 group = session.query(Group).filter(Group.title == target).first()
-                if group and sessionStorage[user_id]['user'] in group.users or group.public_use:
+                if group is None:
+                    res['response']['text'] = 'Я не смогла найти такую группу, возможно вы ввели' \
+                                              ' неправильное название группы,' \
+                                              ' или вы не можете ей управлять'
+                    return
+                if sessionStorage[user_id]['user'] in group.users or group.public_use:
                     for switch in group.switches:
                         switch.status = True
                     group.status = True
                     session.merge(group)
                     session.commit()
-                else:
-                    res['response']['text'] = 'Я не смогла найти такую группу, возможно вы ввели' \
-                                              ' неправильное название группы,' \
-                                              ' или вы не можете ей управлять'
+                    res['response']['text'] = 'Включаю!'
 
             else:
 
@@ -222,16 +222,13 @@ def handle_dialog(res, req):
                         print(module.title)
                         print(module.status)
                         return
-                res['response']['text'] = 'Я не смогла найти такой модуль, возможно вы ввели' \
-                                          ' неправильное название модуля,' \
-                                          ' или вы не можете им управлять'
 
                 print('включила')
         else:
             res['response']['text'] = 'Что включить?'
         return
 
-    elif 'выключить' in req['request']['command'].lower():
+        elif 'выключить' in req['request']['command'].lower():
         session = db_session.create_session()
         pos = req['request']['command'].lower().find('выключить')
         target = req['request']['command'][pos + 10:].lower().strip()
@@ -241,16 +238,21 @@ def handle_dialog(res, req):
             user = sessionStorage[user_id]['user']
             if len(target.split()) > 1 and target.split()[0] == 'группу':
                 if len(target.split()) > 1 and target.split()[0] == 'группу':
-                    target = target[6:]
+                    target = target[7:]
                     session = db_session.create_session()
-                    print(target)
                     group = session.query(Group).filter(Group.title == target).first()
-                    if group and sessionStorage[user_id]['user'] in group.users or group.public_use:
+                    if group is None:
+                        res['response']['text'] = 'Я не смогла найти такую группу, возможно вы ввели' \
+                                                  ' неправильное название группы,' \
+                                                  ' или вы не можете ей управлять'
+                        return
+                    if sessionStorage[user_id]['user'] in group.users or group.public_use:
                         for switch in group.switches:
                             switch.status = False
                         group.status = False
                         session.merge(group)
                         session.commit()
+                        res['response']['text'] = 'Выключаю!'
                     else:
                         res['response']['text'] = 'Я не смогла найти такую группу, возможно вы ввели' \
                                                   ' неправильное название группы,' \
@@ -265,9 +267,6 @@ def handle_dialog(res, req):
                         print(module.title)
                         print(module.status)
                         return
-                res['response']['text'] = 'Я не смогла найти такой модуль, возможно вы ввели' \
-                                          ' неправильное название модуля,' \
-                                          ' или вы не можете им управлять'
 
                 print('выключила')
         else:
