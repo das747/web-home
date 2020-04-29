@@ -8,20 +8,21 @@ class BaseTest:
             'new': {},
             'auth': {},
             'new_auth': {},
+            'parent': {},
             'type': '',
             'checkfields': []}
     id = 2
 
     def test_post(self):
-        resp = post(self.url, json=self.args['old'])
+        resp = post(self.url, json=self.args['old'], auth=HTTPBasicAuth(**self.args['parent']))
         assert resp.status_code == 200
 
     def test_same_post(self):
-        resp = post(self.url, json=self.args['old'])
+        resp = post(self.url, json=self.args['old'], auth=HTTPBasicAuth(**self.args['parent']))
         assert resp.status_code == 422
 
     def test_get_list(self):
-        resp = get(self.url)
+        resp = get(self.url, auth=HTTPBasicAuth(**self.args['parent']))
         assert resp.status_code == 200
 
     def test_get_unauth(self):
@@ -110,6 +111,17 @@ class TestHouse(BaseTest):
             'new': {'title': 'new_house', 'web_hook': 'new_hook', 'password': 'newpass'},
             'auth': {'username': 'old_house', 'password': 'password'},
             'new_auth': {'username': 'new_house', 'password': 'newpass'},
+            'parent': {'username': '', 'password': ''},
             'type': 'house',
             'checkfields': ['title', 'web_hook']}
 
+
+class TestUser(BaseTest):
+    url = BaseTest.url + 'user'
+    args = {'old': {'name': 'old_user', 'email': 'old_email', 'password': 'password'},
+            'new': {'name': 'new_user', 'email': 'new_email', 'password': 'newword'},
+            'auth': {'username': 'old_email', 'password': 'password'},
+            'new_auth': {'username': 'new_email', 'password': 'newword'},
+            'parent': {'username': 'test', 'password': 'pass'},
+            'type': 'user',
+            'checkfields': ['name', 'email']}

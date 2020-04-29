@@ -1,8 +1,8 @@
 from flask import jsonify
 from flask_restful import Resource, reqparse, abort
 from data import db_session
-from data.houses import *
-from api_auth import house_auth
+from data.houses import House
+from api.api_auth import house_auth
 
 parser = reqparse.RequestParser()
 parser.add_argument('title', required=True)
