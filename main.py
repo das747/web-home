@@ -1,4 +1,4 @@
-from collections import defaultdict
+﻿from collections import defaultdict
 
 from requests import post
 from flask import Flask, request, render_template
@@ -186,6 +186,7 @@ def handle_dialog(res, req):
     if 'состояние модулей' in req['request']['command'].lower():
         res['response']['text'] = ''
         user = sessionStorage[user_id]['user']
+        print(user.usable_switches)
         for switch in user.usable_switches:
             module = session.query(Switch).filter(Switch.id == switch.id).first()
             res['response']['text'] += str(
