@@ -349,19 +349,19 @@ def edit_switch(switch_id):
                 form.port.data = switch.port
                 form.editors.data = [user.id for user in switch.editors]
                 form.users.data = [user.id for user in switch.users]
-                return render_template('switch.html', title='Редактирование модуля', form=form)
+                return render_template('switch.html', title='Редактирование модуля', form=form, item=switch)
 
             elif form.validate_on_submit():
                 if session.query(Switch).filter(Switch.title == form.title.data,
                                                 Switch.id != switch_id,
                                                 Switch.house_id == switch.house_id).first():
                     return render_template('switch.html', title='Редактирования модуля',
-                                           form=form, message='Имя модуля уже занято')
+                                           form=form, message='Имя модуля уже занято', item=switch)
                 elif session.query(Switch).filter(Switch.port == form.port.data,
                                                   Switch.id != switch_id,
                                                   Switch.house_id == switch.house_id).first():
                     return render_template('switch.html', title='Редактирования модуля',
-                                           form=form, message='"Этот порт уже используется"')
+                                           form=form, message='"Этот порт уже используется"', item=switch)
                 switch.title = form.title.data
                 switch.port = form.port.data
                 for user in switch.users:
@@ -557,17 +557,17 @@ def edit_group(group_id):
                 form.editors.data = [user.id for user in group.editors]
                 form.users.data = [user.id for user in group.users]
                 form.switches.data = [switch.id for switch in group.switches]
-                return render_template('group.html', title='Редактирование группы', form=form)
+                return render_template('group.html', title='Редактирование группы', form=form, item=group)
 
             elif form.validate_on_submit():
                 if session.query(Group).filter(Group.title == form.title.data,
                                                Group.id != group_id,
                                                Group.house_id == group.house_id).first():
                     return render_template('group.html', title='Редактирования группы',
-                                           form=form, message='Имя группы уже занято')
+                                           form=form, message='Имя группы уже занято', item=group)
                 elif not form.switches.data:
                     return render_template('group.html', title='Редактирования группы',
-                                           form=form, message='В группе нет ни одного модуля')
+                                           form=form, message='В группе нет ни одного модуля', item=group)
                 group.title = form.title.data
                 for user in group.users:
                     if user.id not in form.users.data:
