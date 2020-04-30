@@ -60,7 +60,7 @@
         </ul>
     </div>
     <br>
-    <p>{{ form.submit(type="submit", class="btn btn-primary") }}</p>
+    <p>{{ form.submit(type="submit", class="btn btn-primary") }} {% if title=='Редактирование модуля' %} <a href="/delete_switch/{{ item.id }}" class="btn btn-outline-danger">Удалить</a> {% endif %}</p>
     {{message}}
 </form>
 {% endblock %}
