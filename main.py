@@ -14,7 +14,7 @@ from wtforms.fields.html5 import EmailField
 from wtforms.validators import DataRequired
 
 import autodeploy
-from api import house_resource, user_resource
+from api import house_resource, user_resource, switch_resource
 from flask_restful import Api, abort
 from data import db_session
 from data.switches import Switch
@@ -31,6 +31,8 @@ api.add_resource(house_resource.HouseResource, '/api/house/<int:house_id>')
 api.add_resource(house_resource.HouseListResource, '/api/house')
 api.add_resource(user_resource.UserResource, '/api/user/<int:user_id>')
 api.add_resource(user_resource.UserListResource, '/api/user')
+api.add_resource(switch_resource.SwitchResource, '/api/switch/<int:switch_id>')
+api.add_resource(switch_resource.SwitchListResource, '/api/switch')
 
 sessionStorage = defaultdict(lambda: None)
 
@@ -317,7 +319,7 @@ def edit_switch(switch_id):
                                                   Switch.id != switch_id,
                                                   Switch.house_id == switch.house_id).first():
                     return render_template('switch.html', title='Редактирования модуля',
-                                           form=form, message='"Этот порт уже используется"')
+                                           form=form, message="Этот порт уже используется")
                 switch.title = form.title.data
                 switch.port = form.port.data
                 for user in switch.users:
