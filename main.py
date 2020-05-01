@@ -1,4 +1,4 @@
-﻿from collections import defaultdict
+from collections import defaultdict
 
 from requests import post
 from flask import Flask, request, render_template
