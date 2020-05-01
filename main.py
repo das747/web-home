@@ -14,7 +14,7 @@ from wtforms.fields.html5 import EmailField
 from wtforms.validators import DataRequired
 
 import autodeploy
-from api import house_resource, user_resource, switch_resource
+from api import house_resource, user_resource, switch_resource, group_resource
 from flask_restful import Api, abort
 from data import db_session
 from data.switches import Switch
@@ -33,6 +33,8 @@ api.add_resource(user_resource.UserResource, '/api/user/<int:user_id>')
 api.add_resource(user_resource.UserListResource, '/api/user')
 api.add_resource(switch_resource.SwitchResource, '/api/switch/<int:switch_id>')
 api.add_resource(switch_resource.SwitchListResource, '/api/switch')
+api.add_resource(group_resource.GroupResource, '/api/group/<int:group_id>')
+api.add_resource(group_resource.GroupListResource, '/api/group')
 
 sessionStorage = defaultdict(lambda: None)
 
@@ -41,7 +43,7 @@ login_manager.init_app(app)
 
 if not os.access('./db', os.F_OK):
     os.mkdir('./db')
-db_session.global_init("db/smart_house.db")
+db_session.global_init('db/smart_house.db')
 
 
 @login_manager.user_loader
@@ -122,7 +124,7 @@ def handle_dialog(res, req):
             email, password = req['request']['command'].split()[0], \
                               req['request']['command'].split()[1]
             user = session.query(User).filter(User.email == email).first()
-            print(user.name, user.check_password(password), generate_password_hash(password))
+            print(user.name, user.check_password(password))
             if user and user.check_password(password):
                 sessionStorage[user_id]['user'] = user
                 sessionStorage[user_id]['log_in'] = True
@@ -583,10 +585,10 @@ def set_group(group_id, state):
         if current_user in group.users or group.public_use:
             for switch in group.switches:
                 switch.status = state
+                # post(switch.house.web_hook, json={'p ort': switch.port, 'status': state})
             group.status = state
             session.merge(group)
             session.commit()
-            #     post(switch.house.web_hook, json={'port': switch.port, 'status': switch.status})
             return redirect('/groups_list')
         else:
             abort(403)

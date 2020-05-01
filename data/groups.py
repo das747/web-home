@@ -1,6 +1,6 @@
 import sqlalchemy
 from sqlalchemy import orm
-
+from sqlalchemy_serializer import SerializerMixin
 from .db_session import SqlAlchemyBase
 
 switches_to_groups = sqlalchemy.Table('switches_to_groups', SqlAlchemyBase.metadata,
@@ -10,7 +10,7 @@ switches_to_groups = sqlalchemy.Table('switches_to_groups', SqlAlchemyBase.metad
                                                         sqlalchemy.ForeignKey('groups.id')))
 
 
-class Group(SqlAlchemyBase):
+class Group(SqlAlchemyBase, SerializerMixin):
     __tablename__ = 'groups'
 
     id = sqlalchemy.Column(sqlalchemy.Integer,

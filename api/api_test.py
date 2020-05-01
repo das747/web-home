@@ -1,4 +1,5 @@
 from requests import get, put, post, delete
+from flask import jsonify
 from requests.auth import HTTPBasicAuth
 
 
@@ -134,8 +135,22 @@ class TestSwitch(BaseTest):
                     'public_use': 0, 'public_edit': 1},
             'new': {'title': 'new_module', 'port': 8000, 'status': 1,
                     'public_use': 1, 'public_edit': 0},
-            'auth': {'username': 'test@smart.hause', 'password': '12345678'},
+            'auth': {'username': 'test@smart.house', 'password': '12345678'},
             'type': 'switch'}
+    args['parent'] = args['auth']
+    args['new_auth'] = args['auth']
+    args['checkfields'] = args['old'].keys()
+    id = 4
+
+
+class TestGroup(BaseTest):
+    url = BaseTest.url + 'group'
+    args = {'old': {'title': 'old_group', 'switches': [2, 3], 'status': 0,
+                    'public_use': 0, 'public_edit': 1},
+            'new': {'title': 'new_group', 'switches': [2, 3], 'status': 1,
+                    'public_use': 1, 'public_edit': 0},
+            'auth': {'username': 'test@smart.house', 'password': '12345678'},
+            'type': 'group'}
     args['parent'] = args['auth']
     args['new_auth'] = args['auth']
     args['checkfields'] = args['old'].keys()

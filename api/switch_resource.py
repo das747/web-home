@@ -3,7 +3,8 @@ from flask_restful import Resource, reqparse, abort
 from data import db_session
 from data.users import User
 from data.switches import Switch
-from api.api_auth import house_auth, user_auth
+from api.api_auth import user_auth
+from requests import post
 
 parser = reqparse.RequestParser()
 parser.add_argument('title', required=True, )
@@ -47,7 +48,6 @@ class SwitchResource(Resource):
                     abort(422, message='Этот порт уже используется')
                 switch.title = args['title']
                 switch.port = args['port']
-                switch.house_id = user.house_id
                 switch.status = args['status']
                 if args['public_use']:
                     switch.users.clear()
@@ -57,12 +57,13 @@ class SwitchResource(Resource):
 
                 if args['public_edit']:
                     switch.editors.clear()
-                elif user not in    switch.editors:
+                elif user not in switch.editors:
                     switch.editors.append(user)
                 switch.public_edit = args['public_edit']
 
                 session.merge(switch)
                 session.commit()
+                # post(switch.house.web_hook, json={'port': switch.port, 'status': switch.status})
                 return jsonify({'success': 'OK'})
             else:
                 abort(403)
@@ -106,9 +107,9 @@ class SwitchListResource(Resource):
         if not args['public_edit']:
             switch.editors.append(user)
         switch.public_edit = args['public_edit']
-        # session.add(switch)
         session.merge(switch)
         session.commit()
+        # post(switch.house.web_hook, json={'port': switch.port, 'status': switch.status})
         return jsonify({'success': 'OK'})
 
     @user_auth.login_required
