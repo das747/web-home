@@ -1,4 +1,4 @@
-﻿{% extends "base.html" %}
+{% extends "base.html" %}
 
 {% block content %}
 <h1>Редактирование пользователя</h1>
@@ -24,6 +24,29 @@
             </p>
         {% endfor %}
     </p>
+    
+    <p>
+        {{ form.password_again.label }}<br>
+        {{ form.password_again(class="form-control") }}<br>
+        {% for error in form.password_again.errors %}
+            <p class="alert alert-danger" role="alert">
+                {{ error }}
+            </p>
+        {% endfor %}
+    </p>
+
+    <p>
+        {{ form.password_again_2.label }}<br>
+        {{ form.password_again_2(class="form-control") }}<br>
+        {% for error in form.password_again_2.errors %}
+            <p class="alert alert-danger" role="alert">
+                {{ error }}
+            </p>
+        {% endfor %}
+    </p>
+
+
+    Для сохранения изменений необходимо ввести пароль
     <p>
         {{ form.password.label }}<br>
         {{ form.password(class="form-control") }}<br>
@@ -35,7 +58,8 @@
     </p>
 
 
-    <p><br>{{ form.submit(type="submit", class="btn btn-primary") }} {% if title=='Редактирование пользователя' %} <a href="/delete_user/{{ item.id }}" class="btn btn-outline-danger">Удалить</a> {% endif %}</p>
+    <p>{{ form.submit(type="submit", class="btn btn-primary") }} {% if title=='Редактирование пользователя' %} <a href="/delete_user/{{ item.id }}" class="btn btn-outline-danger">Удалить</a> {% endif %}</p>
+    <p><a href="/logout" class="btn btn-outline-primary">Выйти</a></p>
 
     {{message}}
 </form>
