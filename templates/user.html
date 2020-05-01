@@ -1,0 +1,42 @@
+﻿{% extends "base.html" %}
+
+{% block content %}
+<h1>Редактирование пользователя</h1>
+<form action="" method="post">
+    {{ form.hidden_tag() }}
+    {{ form.csrf_token }}
+    
+    <p>
+        {{ form.name.label }}<br>
+        {{ form.name(class="form-control") }}<br>
+        {% for error in form.name.errors %}
+            <p class="alert alert-danger" role="alert">
+                {{ error }}
+            </p>
+        {% endfor %}
+    </p>
+    <p>
+        {{ form.email.label }}<br>
+        {{ form.email(class="form-control") }}<br>
+        {% for error in form.email.errors %}
+            <p class="alert alert-danger" role="alert">
+                {{ error }}
+            </p>
+        {% endfor %}
+    </p>
+    <p>
+        {{ form.password.label }}<br>
+        {{ form.password(class="form-control") }}<br>
+        {% for error in form.password.errors %}
+            <p class="alert alert-danger" role="alert">
+                {{ error }}
+            </p>
+        {% endfor %}
+    </p>
+
+
+    <p><br>{{ form.submit(type="submit", class="btn btn-primary") }} {% if title=='Редактирование пользователя' %} <a href="/delete_user/{{ item.id }}" class="btn btn-outline-danger">Удалить</a> {% endif %}</p>
+
+    {{message}}
+</form>
+{% endblock %}
