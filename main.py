@@ -106,7 +106,7 @@ class RegisterForm(FlaskForm):
 class UserEditForm(FlaskForm):
     email = StringField('Почта', validators=[DataRequired()])
     name = StringField('Имя', validators=[DataRequired()])
-    password = StringField('Пароль', validators=[DataRequired()])
+    password = PasswordField('Пароль', validators=[DataRequired()])
     submit = SubmitField('Сохранить')
     
 def handle_dialog(res, req):
@@ -315,15 +315,11 @@ def edit_user(user_id):
         form.email.data = user.email
         return render_template('user.html', title='Редактирование пользователя', form=form, item=user)
     elif form.validate_on_submit():
-        session = db_session.create_session()
-        user = session.query(User).get(user_id)
-        form.name.data = user.name
-        form.email.data = user.email
 
         if session.query(User).filter(User.email == form.email.data, User.id != user_id).first():
             return render_template('user.html', title='Редактирование пользователя', form=form,
                                    message="Такая почта уже зарегистрирована", item=user)
-        elif form.password.data != form.password_again.data:
+        elif not user.check_password(form.password.data):
             return render_template('user.html', form=form, title='Редактирование пользователя',
                                    message='Пароли не совпадают', item=user)
 
@@ -349,7 +345,7 @@ def delete_user(user_id):
             abort(403)
     else:
         abort(404)
-  
+
 
 @app.route('/add_switch', methods=['GET', 'POST'])
 @login_required
