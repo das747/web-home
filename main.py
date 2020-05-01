@@ -106,6 +106,8 @@ class RegisterForm(FlaskForm):
 class UserEditForm(FlaskForm):
     email = StringField('Почта', validators=[DataRequired()])
     name = StringField('Имя', validators=[DataRequired()])
+    password_again = PasswordField('Введите новый пароль для смены текущего')
+    password_again_2 = PasswordField('Повторите новый пароль')
     password = PasswordField('Пароль', validators=[DataRequired()])
     submit = SubmitField('Сохранить')
     
@@ -315,19 +317,26 @@ def edit_user(user_id):
         form.email.data = user.email
         return render_template('user.html', title='Редактирование пользователя', form=form, item=user)
     elif form.validate_on_submit():
-
+        print(form.password_again.data, form.password_again_2.data)
         if session.query(User).filter(User.email == form.email.data, User.id != user_id).first():
             return render_template('user.html', title='Редактирование пользователя', form=form,
                                    message="Такая почта уже зарегистрирована", item=user)
         elif not user.check_password(form.password.data):
             return render_template('user.html', form=form, title='Редактирование пользователя',
                                    message='Пароли не совпадают', item=user)
+        elif form.password_again.data != form.password_again_2.data:
+            print(form.password_again.data, form.password_again_2.data)
+            return render_template('user.html', form=form, title='Редактирование пользователя',
+                                   message='Пароли не совпадают', item=user)
 
         user.name = form.name.data
         user.email = form.email.data
+        if form.password_again.data != '':
+            user.set_password(form.password_again.data)
         session.commit()
         return redirect('/')
     return render_template('user.html', title='Редактирование пользователя', form=form, item=user)
+
 
 
 @app.route('/delete_user/<int:user_id>', methods=['GET'])
