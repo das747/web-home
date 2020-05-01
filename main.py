@@ -103,7 +103,12 @@ class RegisterForm(FlaskForm):
     house_password = PasswordField('Пароль от дома', validators=[DataRequired()])
     submit = SubmitField('Регистрация')
 
-
+class UserEditForm(FlaskForm):
+    email = StringField('Почта', validators=[DataRequired()])
+    name = StringField('Имя', validators=[DataRequired()])
+    password = StringField('Пароль', validators=[DataRequired()])
+    submit = SubmitField('Сохранить')
+    
 def handle_dialog(res, req):
     session = db_session.create_session()
     user_id = req['session']['user_id']
@@ -296,7 +301,55 @@ def start():
     else:
         switches = []
     return render_template('index.html', title='Smart house', items=switches, type='switch')
+  
 
+  
+@app.route('/edit_user/<int:user_id>', methods=['GET', 'POST'])
+def edit_user(user_id):
+    form = UserEditForm()
+    session = db_session.create_session()
+    user = session.query(User).get(user_id)
+    if request.method == 'GET':
+
+        form.name.data = user.name
+        form.email.data = user.email
+        return render_template('user.html', title='Редактирование пользователя', form=form, item=user)
+    elif form.validate_on_submit():
+        session = db_session.create_session()
+        user = session.query(User).get(user_id)
+        form.name.data = user.name
+        form.email.data = user.email
+
+        if session.query(User).filter(User.email == form.email.data, User.id != user_id).first():
+            return render_template('user.html', title='Редактирование пользователя', form=form,
+                                   message="Такая почта уже зарегистрирована", item=user)
+        elif form.password.data != form.password_again.data:
+            return render_template('user.html', form=form, title='Редактирование пользователя',
+                                   message='Пароли не совпадают', item=user)
+
+        user.name = form.name.data
+        user.email = form.email.data
+        session.commit()
+        return redirect('/')
+    return render_template('user.html', title='Редактирование пользователя', form=form, item=user)
+
+
+@app.route('/delete_user/<int:user_id>', methods=['GET'])
+@login_required
+def delete_user(user_id):
+    session = db_session.create_session()
+    user = session.query(User).get(user_id)
+    if user:
+        if current_user.is_authenticated and current_user.id == user.id:
+            logout_user()
+            session.delete(user)
+            session.commit()
+            return redirect('/')
+        else:
+            abort(403)
+    else:
+        abort(404)
+  
 
 @app.route('/add_switch', methods=['GET', 'POST'])
 @login_required
