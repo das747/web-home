@@ -61,8 +61,8 @@ class MultiCheckboxField(SelectMultipleField):
 
 class SwitchForm(FlaskForm):
     title = StringField(
-        'Название модуля(называйте модуль, чтобы всегда было понятно за что он отвечает)',
-        validators=[DataRequired()])
+            'Название модуля(называйте модуль, чтобы всегда было понятно за что он отвечает)',
+            validators=[DataRequired()])
     port = IntegerField('Номер порта', validators=[DataRequired()])
     users = MultiCheckboxField('Кто может использовать (если не выбрать доступно всем)', coerce=int)
     editors = MultiCheckboxField('Кто может редактировать (если не выбрать доступно всем)',
@@ -103,6 +103,7 @@ class RegisterForm(FlaskForm):
     house_password = PasswordField('Пароль от дома', validators=[DataRequired()])
     submit = SubmitField('Регистрация')
 
+
 class UserEditForm(FlaskForm):
     email = StringField('Почта', validators=[DataRequired()])
     name = StringField('Имя', validators=[DataRequired()])
@@ -110,7 +111,8 @@ class UserEditForm(FlaskForm):
     password_again_2 = PasswordField('Повторите новый пароль')
     password = PasswordField('Пароль', validators=[DataRequired()])
     submit = SubmitField('Сохранить')
-    
+
+
 def handle_dialog(res, req):
     session = db_session.create_session()
     user_id = req['session']['user_id']
@@ -193,12 +195,12 @@ def handle_dialog(res, req):
     if 'состояние модулей' in req['request']['command'].lower():
         res['response']['text'] = ''
         user = sessionStorage[user_id]['user']
-        if user.usable_swithes == []:
+        if not user.usable_swithes:
             res['response']['text'] = 'У вас нет модулей умного дома'
         for switch in user.usable_switches:
             module = session.query(Switch).filter(Switch.id == switch.id).first()
             res['response']['text'] += str(
-                module.title) + ': ' + 'включен' * module.status + 'выключен' * (
+                    module.title) + ': ' + 'включен' * module.status + 'выключен' * (
                                                1 - module.status) + '\n'
         return
 
@@ -303,9 +305,8 @@ def start():
     else:
         switches = []
     return render_template('index.html', title='Smart house', items=switches, type='switch')
-  
 
-  
+
 @app.route('/edit_user/<int:user_id>', methods=['GET', 'POST'])
 def edit_user(user_id):
     form = UserEditForm()
@@ -315,7 +316,8 @@ def edit_user(user_id):
 
         form.name.data = user.name
         form.email.data = user.email
-        return render_template('user.html', title='Редактирование пользователя', form=form, item=user)
+        return render_template('user.html', title='Редактирование пользователя', form=form,
+                               item=user)
     elif form.validate_on_submit():
         print(form.password_again.data, form.password_again_2.data)
         if session.query(User).filter(User.email == form.email.data, User.id != user_id).first():
@@ -336,7 +338,6 @@ def edit_user(user_id):
         session.commit()
         return redirect('/')
     return render_template('user.html', title='Редактирование пользователя', form=form, item=user)
-
 
 
 @app.route('/delete_user/<int:user_id>', methods=['GET'])
@@ -407,7 +408,8 @@ def edit_switch(switch_id):
                 form.port.data = switch.port
                 form.editors.data = [user.id for user in switch.editors]
                 form.users.data = [user.id for user in switch.users]
-                return render_template('switch.html', title='Редактирование модуля', form=form, item=switch)
+                return render_template('switch.html', title='Редактирование модуля', form=form,
+                                       item=switch)
 
             elif form.validate_on_submit():
                 if session.query(Switch).filter(Switch.title == form.title.data,
@@ -419,7 +421,8 @@ def edit_switch(switch_id):
                                                   Switch.id != switch_id,
                                                   Switch.house_id == switch.house_id).first():
                     return render_template('switch.html', title='Редактирования модуля',
-                                           form=form, message='"Этот порт уже используется"', item=switch)
+                                           form=form, message='"Этот порт уже используется"',
+                                           item=switch)
                 switch.title = form.title.data
                 switch.port = form.port.data
                 for user in switch.users:
@@ -615,7 +618,8 @@ def edit_group(group_id):
                 form.editors.data = [user.id for user in group.editors]
                 form.users.data = [user.id for user in group.users]
                 form.switches.data = [switch.id for switch in group.switches]
-                return render_template('group.html', title='Редактирование группы', form=form, item=group)
+                return render_template('group.html', title='Редактирование группы', form=form,
+                                       item=group)
 
             elif form.validate_on_submit():
                 if session.query(Group).filter(Group.title == form.title.data,
@@ -625,7 +629,8 @@ def edit_group(group_id):
                                            form=form, message='Имя группы уже занято', item=group)
                 elif not form.switches.data:
                     return render_template('group.html', title='Редактирования группы',
-                                           form=form, message='В группе нет ни одного модуля', item=group)
+                                           form=form, message='В группе нет ни одного модуля',
+                                           item=group)
                 group.title = form.title.data
                 for user in group.users:
                     if user.id not in form.users.data:
