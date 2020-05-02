@@ -205,13 +205,20 @@ def handle_dialog(res, req):
     if 'состояние модулей' in req['request']['command'].lower():
         res['response']['text'] = ''
         user = sessionStorage[user_id]['user']
-        if not user.usable_switches:
+        if not user.usable_switches and not session.query(Switch).filter(Switch.public_use == 1):
             res['response']['text'] = 'У вас нет модулей умного дома'
-        for switch in user.usable_switches:
+        print(user.usable_switches)
+
+        switches = user.usable_switches
+        for switch in session.query(Switch).filter(Switch.public_use == 1):
+            switches.append(switch)
+        print(set(switches))
+        for switch in switches:
             module = session.query(Switch).filter(Switch.id == switch.id).first()
             res['response']['text'] += str(
-                    module.title) + ': ' + 'включен' * module.status + 'выключен' * (
+                module.title) + ': ' + 'включен' * module.status + 'выключен' * (
                                                1 - module.status) + '\n'
+
         return
 
     if 'включить' in req['request']['command'].lower():
@@ -237,6 +244,7 @@ def handle_dialog(res, req):
                     session.merge(group)
                     session.commit()
                     res['response']['text'] = 'Включаю!'
+                return
 
             else:
 
@@ -264,26 +272,21 @@ def handle_dialog(res, req):
             res['response']['text'] = 'Не смогла найти'
             user = sessionStorage[user_id]['user']
             if len(target.split()) > 1 and target.split()[0] == 'группу':
-                if len(target.split()) > 1 and target.split()[0] == 'группу':
-                    target = target[7:]
-                    session = db_session.create_session()
-                    group = session.query(Group).filter(Group.title == target).first()
-                    if group is None:
-                        res['response']['text'] = 'Я не смогла найти такую группу, возможно вы ввели' \
-                                                  ' неправильное название группы,' \
-                                                  ' или вы не можете ей управлять'
-                        return
-                    if sessionStorage[user_id]['user'] in group.users or group.public_use:
-                        for switch in group.switches:
-                            switch.status = False
-                        group.status = False
-                        session.merge(group)
-                        session.commit()
-                        res['response']['text'] = 'Выключаю!'
-                    else:
-                        res['response']['text'] = 'Я не смогла найти такую группу, возможно вы ввели' \
-                                                  ' неправильное название группы,' \
-                                                  ' или вы не можете ей управлять'
+                target = target[7:]
+                session = db_session.create_session()
+                group = session.query(Group).filter(Group.title == target).first()
+                if group is None:
+                    res['response']['text'] = 'Я не смогла найти такую группу, возможно вы ввели' \
+                                              ' неправильное название группы,' \
+                                              ' или вы не можете ей управлять'
+                    return
+                if sessionStorage[user_id]['user'] in group.users or group.public_use:
+                    for switch in group.switches:
+                        switch.status = False
+                    group.status = False
+                    session.merge(group)
+                    session.commit()
+                    res['response']['text'] = 'Выключаю!'
             else:
                 for switch in user.usable_switches:
                     if switch.title == target:
@@ -300,6 +303,7 @@ def handle_dialog(res, req):
             res['response']['text'] = 'Что выключить?'
         return
     res['response']['text'] = 'Я не знаю этой команды, чтобы узнать список команд, напишите help'
+
 
 
 @app.route("/", methods=['GET'])
