@@ -21,7 +21,7 @@
             <a class="btn btn-info" href="/">Модули</a>
             <a class="btn btn-info" href="/groups_list">Группы модулей</a>
             <a class="btn btn-outline-warning" href="/edit_house/{{current_user.house_id}}">Изменить умный дом</a>
-    	    <a class="btn btn-outline-primary" href="/logout">{{ current_user.name }}</a>
+    	    <a class="btn btn-outline-primary" href="/edit_user/{{ current_user.id }}">{{ current_user.name }}</a>
         </p>
 	{% else %}
     	<p>
