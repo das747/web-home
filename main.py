@@ -202,7 +202,7 @@ def handle_dialog(res, req):
     if 'состояние модулей' in req['request']['command'].lower():
         res['response']['text'] = ''
         user = sessionStorage[user_id]['user']
-        if not user.usable_swithes:
+        if not user.usable_switches:
             res['response']['text'] = 'У вас нет модулей умного дома'
         for switch in user.usable_switches:
             module = session.query(Switch).filter(Switch.id == switch.id).first()
