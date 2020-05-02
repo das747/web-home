@@ -127,6 +127,9 @@ def handle_dialog(res, req):
         sessionStorage[user_id] = {'log_in': False, 'user': None}
         res['response']['text'] = 'Привет, я помощник для умного дома'
         return
+    else:
+        sessionStorage[user_id]['user'] = session.query(User).filter(User.id ==
+                                                                     sessionStorage[user_id]['user'].id).first()
     res['response']['text'] = 'Nothing'
     res['response']['buttons'] = []
     if req['request']['command'].lower() in ['помощь', 'что ты умеешь']:
