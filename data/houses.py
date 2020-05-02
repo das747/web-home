@@ -1,9 +1,10 @@
 import sqlalchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 from .db_session import SqlAlchemyBase
+from sqlalchemy_serializer import SerializerMixin
 
 
-class House(SqlAlchemyBase):
+class House(SqlAlchemyBase, SerializerMixin):
     __tablename__ = 'houses'
     id = sqlalchemy.Column(sqlalchemy.Integer, primary_key=True, autoincrement=True)
     title = sqlalchemy.Column(sqlalchemy.String, nullable=True)

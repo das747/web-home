@@ -1,10 +1,10 @@
 import sqlalchemy
 from sqlalchemy import orm
-
+from sqlalchemy_serializer import SerializerMixin
 from .db_session import SqlAlchemyBase
 
 
-class Switch(SqlAlchemyBase):
+class Switch(SqlAlchemyBase, SerializerMixin):
     __tablename__ = 'switches'
 
     id = sqlalchemy.Column(sqlalchemy.Integer, primary_key=True, autoincrement=True)

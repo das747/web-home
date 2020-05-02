@@ -1,11 +1,10 @@
 from collections import defaultdict
-
 from requests import post
-from flask import Flask, request, render_template
 import logging
 import json
 import os
 
+from flask import Flask, request, render_template
 from flask_login import LoginManager, login_user, login_required, current_user, logout_user
 from flask_wtf import FlaskForm
 from werkzeug.utils import redirect
@@ -15,30 +14,38 @@ from wtforms.fields.html5 import EmailField
 from wtforms.validators import DataRequired
 
 import autodeploy
-import house_resource
+from api import house_resource, user_resource, switch_resource, group_resource
 from flask_restful import Api, abort
 from data import db_session
-from data.switches import *
-from data.users import *
-from data.groups import *
-from data.houses import *
+from data.switches import Switch
+from data.users import User
+from data.groups import Group
+from data.houses import House
 
 app = Flask(__name__)
-logging.basicConfig(level=logging.INFO,
-                    format='%(filename)s --> %(levelname)s: %(message)s')
+app.config['SECRET_KEY'] = 'yandexlyceum_secret_key'
+logging.basicConfig(level=logging.INFO, format='%(filename)s --> %(levelname)s: %(message)s')
+
 api = Api(app)
 app.register_blueprint(autodeploy.blueprint)
-# api.add_resource(house_resource.HouseResource, '/api/v2/func/<device_id>/<int:status>')
+api.add_resource(house_resource.HouseResource, '/api/house/<int:house_id>')
+api.add_resource(house_resource.HouseListResource, '/api/house')
+api.add_resource(user_resource.UserResource, '/api/user/<int:user_id>')
+api.add_resource(user_resource.UserListResource, '/api/user')
+api.add_resource(switch_resource.SwitchResource, '/api/switch/<int:switch_id>')
+api.add_resource(switch_resource.SwitchListResource, '/api/switch')
+api.add_resource(group_resource.GroupResource, '/api/group/<int:group_id>')
+api.add_resource(group_resource.GroupListResource, '/api/group')
 
 
 sessionStorage = defaultdict(lambda: None)
-app.config['SECRET_KEY'] = 'yandexlyceum_secret_key'
+
 login_manager = LoginManager()
 login_manager.init_app(app)
 
 if not os.access('./db', os.F_OK):
     os.mkdir('./db')
-db_session.global_init("db/smart_house.db")
+db_session.global_init('db/smart_house.db')
 
 
 @login_manager.user_loader
@@ -688,10 +695,10 @@ def set_group(group_id, state):
         if current_user in group.users or group.public_use:
             for switch in group.switches:
                 switch.status = state
+                # post(switch.house.web_hook, json={'p ort': switch.port, 'status': state})
             group.status = state
             session.merge(group)
             session.commit()
-            #     post(switch.house.web_hook, json={'port': switch.port, 'status': switch.status})
             return redirect('/groups_list')
         else:
             abort(403)
