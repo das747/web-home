@@ -125,102 +125,119 @@ class UserEditForm(FlaskForm):  # форма для редактирования
 def handle_dialog(res, req):
     session = db_session.create_session()
     user_id = req['session']['user_id']
+
+    command = req['request']['command'].lower()
+    res['response']['buttons'] = [
+        {
+            'title': 'Перейти на сайт',
+            "url": "http://84.201.144.114/",
+            'hide': True
+        }
+    ]
     if req['session']['new']:
         sessionStorage[user_id] = {'log_in': False, 'user': None}
-        res['response']['text'] = 'Привет, я помощник для умного дома'
-        return
-    elif sessionStorage[user_id]['log_in']:  # обновление объекта пользователя
-        sessionStorage[user_id]['user'] = session.query(User).filter(User.id ==
-                                                                     sessionStorage[user_id]['user'].id).first()
-    res['response']['text'] = 'Nothing'
-    res['response']['buttons'] = []
-    # обработка запроса "помощь"
-    if req['request']['command'].lower() in ['помощь', 'что ты умеешь']:
-        res['response']['text'] = 'Я навык, который поможет вам в управлении умным домом.' \
+        res['response']['text'] = 'Привет, я навык, который поможет вам ' \
+                                  'в управлении умным домом. ' \
                                   'Я могу включить и выключать модули умного дома, ' \
                                   'сообщать вам информацию о их состоянии. ' \
                                   'Для начала работы, вам необходимо зарегистрироваться на сайте ' \
-                                  'http://84.201.144.114/register'
+                                  'http://84.201.144.114/register \n' \
+                                  'Если вы уже зарегистрировались, Вам необходимо авторизироваться. ' \
+                                  'Введите почту и пароль через пробел. \n'
         return
-    # обработка запроса неавторизированного пользователя
+
+    elif sessionStorage[user_id]['log_in']:
+        command = req['request']['command'].lower().replace('.', '').replace('?', '').replace(',', '')
+        sessionStorage[user_id]['user'] = session.query(User).filter(User.id ==
+                                                                     sessionStorage[user_id]['user'].id).first()
+        if sessionStorage[user_id]['user'] is None:
+            res['response']['text'] = 'Данной учетной записи больше не существует, авторизируйтесь заново'
+            sessionStorage[user_id]['log_in'] = False
+            sessionStorage[user_id]['user'] = None
+            return
+
+    if sessionStorage[user_id]['log_in']:
+        res['response']['buttons'] = [
+            {
+                'title': 'Выйти',
+                'hide': True
+            },
+            {
+                'title': 'Помощь',
+                'hide': True
+            },
+            {
+                'title': 'Состояние модулей',
+                'hide': True
+            },
+            {
+                'title': 'Перейти на сайт',
+                "url": "http://84.201.144.114/",
+                'hide': True
+            }
+        ]
+    if command in ['помощь', 'что ты умеешь']:
+        res['response']['text'] = 'Вот список моих команд: \n\n' \
+                                  'Включи <Название модуля> \n' \
+                                  'Выключи <Название модуля> \n' \
+                                  'Включи группу <Название группы модулей> \n' \
+                                  'Выключи группу <Название группы модулей> \n' \
+                                  'Состояние модулей(список модулей и их состояние)'
+        if not sessionStorage[user_id]['log_in']:
+            res['response']['text'] += '\n Данными командами можно воспользоваться только после авторизации'
+        return
     if not sessionStorage[user_id]['log_in']:
         res['response']['text'] = 'Я не могу вам помочь, пока вы не войдете,' \
                                   'чтобы войти, введите свой email и пароль(через пробел)'
-        #  обработка попытки автризации
-        if req['request']['command'] and len(req['request']['command'].split()) == 2:
-            email, password = req['request']['command'].split()[0], \
-                              req['request']['command'].split()[1]
+        if command and len(command.split()) == 2:
+            print('email, password')
+            email, password = command.split()[0], command.split()[1]
             user = session.query(User).filter(User.email == email).first()
             # print(user.name, user.check_password(password), generate_password_hash(password))
             if user and user.check_password(password):
                 sessionStorage[user_id]['user'] = user
                 sessionStorage[user_id]['log_in'] = True
                 res['response']['text'] = '''Вы вошли
-                чтобы узнать список команд напишите Help'''
+                чтобы узнать список команд напишите Помощь'''
                 res['response']['buttons'] = [
                     {
                         'title': 'Выйти',
                         'hide': True
                     },
                     {
-                        'title': 'Help',
+                        'title': 'Помощь',
                         'hide': True
                     },
                     {
                         'title': 'Состояние модулей',
                         'hide': True
+                    },
+                    {
+                        'title': 'Перейти на сайт',
+                        "url": "http://84.201.144.114/",
+                        'hide': True
                     }
                 ]
 
-                print(req['request']['command'], sessionStorage[user_id]['log_in'])
             else:
                 res['response']['text'] = 'Вы неправильно ввели логин или пароль'
         return
-
-    res['response']['buttons'] = [
-        {
-            'title': 'Выйти',
-            'hide': True
-        },
-        {
-            'title': 'Help',
-            'hide': True
-        },
-        {
-            'title': 'Состояние модулей',
-            'hide': True
-        }
-    ]
-
-    # обработка запроса выйти из учётной записи
-    if req['request']['command'].lower() == 'выйти':
+    if command == 'выйти':
         res['response']['text'] = 'Вы вышли'
         sessionStorage[user_id]['user'] = None
         sessionStorage[user_id]['log_in'] = False
         res['response']['buttons'] = []
         return
 
-    # обработка запроса списка команд
-    if req['request']['command'].lower() == 'help':
-        res['response']['text'] = '''Включить <Название модуля>
-            Выключить <Название модуля>
-            Включить группу <Название группы>
-            Выключить группу <Название группы>
-            Состояние модулей(список модулей и их состояние)'''
-        return
-
-    # обрабокта запроса вывода состояния модулей
-    if 'состояние модулей' in req['request']['command'].lower():
+    if 'состояние модулей' in command:
         res['response']['text'] = ''
         user = sessionStorage[user_id]['user']
         if not user.usable_switches and not session.query(Switch).filter(Switch.public_use == 1):
             res['response']['text'] = 'У вас нет модулей умного дома'
-        print(user.usable_switches)
 
         switches = user.usable_switches
         for switch in session.query(Switch).filter(Switch.public_use == 1):
             switches.append(switch)
-        print(set(switches))
         for switch in switches:
             module = session.query(Switch).filter(Switch.id == switch.id).first()
             res['response']['text'] += str(
@@ -229,18 +246,15 @@ def handle_dialog(res, req):
 
         return
 
-    # обработка запроса включения
-    if 'включить' in req['request']['command'].lower():
+    if 'включи' in command:
         session = db_session.create_session()
-        pos = req['request']['command'].lower().find('включить')
-        target = req['request']['command'][pos + 9:].lower().strip()
+        pos = command.find('включи')
+        target = command[pos + 7:].lower().strip()
         print(target)
         if target:
             user = sessionStorage[user_id]['user']
-            # включение группы
             if len(target.split()) > 1 and target.split()[0] == 'группу':
                 target = target[7:]
-                session = db_session.create_session()
                 group = session.query(Group).filter(Group.title == target).first()
                 if group is None:
                     res['response']['text'] = 'Я не смогла найти такую группу, возможно вы ввели' \
@@ -253,38 +267,40 @@ def handle_dialog(res, req):
                     group.status = True
                     session.merge(group)
                     session.commit()
-                    res['response']['text'] = 'Включаю!'
+                    res['response']['text'] = 'Включила!'
                 return
 
-            else:  # включение одного модуля
+            else:
                 for switch in user.usable_switches:
                     if switch.title == target:
                         module = session.query(Switch).filter(Switch.id == switch.id).first()
                         module.status = True
-                        res['response']['text'] = 'Включила!'
+                        res['response']['text'] = 'Включаю!'
                         session.commit()
-                        print(module.title)
-                        print(module.status)
                         return
-
-                print('включила')
+                switch = session.query(Switch).filter(Switch.public_use == 1,
+                                                      Switch.title == target).first()
+                if switch:
+                    switch.status = True
+                    session.commit()
+                    res['response']['text'] = 'Включила!'
+                    return
+                res['response']['text'] = 'У вас нет такого устройства или вы им не можете управлять'
+                return
         else:
             res['response']['text'] = 'Что включить?'
             return
 
-    # обработка запроса выключения
-    elif 'выключить' in req['request']['command'].lower():
+    elif 'выключи' in command:
         session = db_session.create_session()
-        pos = req['request']['command'].lower().find('выключить')
-        target = req['request']['command'][pos + 10:].lower().strip()
+        pos = command.find('выключи')
+        target = command[pos + 8:].lower().strip()
         print(target)
         if target:
             res['response']['text'] = 'Не смогла найти'
             user = sessionStorage[user_id]['user']
-            # выключение группы
             if len(target.split()) > 1 and target.split()[0] == 'группу':
                 target = target[7:]
-                session = db_session.create_session()
                 group = session.query(Group).filter(Group.title == target).first()
                 if group is None:
                     res['response']['text'] = 'Я не смогла найти такую группу, возможно вы ввели' \
@@ -298,22 +314,30 @@ def handle_dialog(res, req):
                     session.merge(group)
                     session.commit()
                     res['response']['text'] = 'Выключаю!'
-            else:  # выключение одного модуля
+            else:
+
                 for switch in user.usable_switches:
                     if switch.title == target:
                         module = session.query(Switch).filter(Switch.id == switch.id).first()
                         module.status = False
                         res['response']['text'] = 'Выключила!'
                         session.commit()
-                        print(module.title)
-                        print(module.status)
                         return
-
-                print('выключила')
-        else:
-            res['response']['text'] = 'Что выключить?'
+                switch = session.query(Switch).filter(Switch.public_use == 1,
+                                                      Switch.title == target).first()
+                if switch:
+                    switch.status = False
+                    session.commit()
+                    res['response']['text'] = 'Выключаю!'
+                    return
+                res['response']['text'] = 'У вас нет такого устройства или вы им не можете управлять'
+                return
+    else:
+        res['response']['text'] = 'Что выключить?'
         return
-    res['response']['text'] = 'Я не знаю этой команды, чтобы узнать список команд, напишите help'
+    res['response']['text'] = 'Я не знаю этой команды, чтобы узнать список команд, напишите Помощь'
+    session.commit()
+
 
 
 # обработчик стартовой страницы со списком модулей
