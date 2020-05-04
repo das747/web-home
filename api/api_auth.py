@@ -1,12 +1,13 @@
 from flask_httpauth import HTTPBasicAuth
 from data import db_session
-from data.users import *
-from data.houses import *
+from data.users import User
+from data.houses import House
 
 user_auth = HTTPBasicAuth()
 house_auth = HTTPBasicAuth()
 
 
+# процедура аутентификации пользователя
 @user_auth.verify_password
 def check_user_password(username, password):
     session = db_session.create_session()
@@ -15,6 +16,7 @@ def check_user_password(username, password):
         return user
 
 
+# процедура аутентификации записи дома
 @house_auth.verify_password
 def check_house_password(username, password):
     session = db_session.create_session()
