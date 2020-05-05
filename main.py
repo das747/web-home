@@ -147,16 +147,6 @@ def handle_dialog(res, req):
         return
 
     elif sessionStorage[user_id]['log_in']:
-        command = req['request']['command'].lower().replace('.', '').replace('?', '').replace(',', '')
-        sessionStorage[user_id]['user'] = session.query(User).filter(User.id ==
-                                                                     sessionStorage[user_id]['user'].id).first()
-        if sessionStorage[user_id]['user'] is None:
-            res['response']['text'] = 'Данной учетной записи больше не существует, авторизируйтесь заново'
-            sessionStorage[user_id]['log_in'] = False
-            sessionStorage[user_id]['user'] = None
-            return
-
-    if sessionStorage[user_id]['log_in']:
         res['response']['buttons'] = [
             {
                 'title': 'Выйти',
@@ -176,6 +166,15 @@ def handle_dialog(res, req):
                 'hide': True
             }
         ]
+        command = req['request']['command'].lower().replace('.', '').replace('?', '').replace(',', '')
+        sessionStorage[user_id]['user'] = session.query(User).filter(User.id ==
+                                                                     sessionStorage[user_id]['user'].id).first()
+        if sessionStorage[user_id]['user'] is None:
+            res['response']['text'] = 'Данной учетной записи больше не существует, авторизируйтесь заново'
+            sessionStorage[user_id]['log_in'] = False
+            sessionStorage[user_id]['user'] = None
+            return
+
     if command in ['помощь', 'что ты умеешь']:
         res['response']['text'] = 'Вот список моих команд: \n\n' \
                                   'Включи <Название модуля> \n' \
@@ -230,8 +229,9 @@ def handle_dialog(res, req):
         return
 
     if 'состояние модулей' in command:
+        session = db_session.create_session()
         res['response']['text'] = ''
-        user = sessionStorage[user_id]['user']
+        user = session.query(User).get(sessionStorage[user_id]['user'].id)
         if not user.usable_switches and not session.query(Switch).filter(Switch.public_use == 1):
             res['response']['text'] = 'У вас нет модулей умного дома'
 
@@ -239,7 +239,7 @@ def handle_dialog(res, req):
         for switch in session.query(Switch).filter(Switch.public_use == 1):
             switches.append(switch)
         for switch in switches:
-            module = session.query(Switch).filter(Switch.id == switch.id).first()
+            module = session.query(Switch).get(switch.id)
             res['response']['text'] += str(
                 module.title) + ': ' + 'включен' * module.status + 'выключен' * (
                                                1 - module.status) + '\n'
@@ -273,7 +273,7 @@ def handle_dialog(res, req):
             else:
                 for switch in user.usable_switches:
                     if switch.title == target:
-                        module = session.query(Switch).filter(Switch.id == switch.id).first()
+                        module = session.query(Switch).get(switch.id)
                         module.status = True
                         res['response']['text'] = 'Включаю!'
                         session.commit()
@@ -287,9 +287,8 @@ def handle_dialog(res, req):
                     return
                 res['response']['text'] = 'У вас нет такого устройства или вы им не можете управлять'
                 return
-        else:
-            res['response']['text'] = 'Что включить?'
-            return
+        res['response']['text'] = 'Что включить?'
+        return
 
     elif 'выключи' in command:
         session = db_session.create_session()
@@ -318,7 +317,7 @@ def handle_dialog(res, req):
 
                 for switch in user.usable_switches:
                     if switch.title == target:
-                        module = session.query(Switch).filter(Switch.id == switch.id).first()
+                        module = session.query(Switch).get(switch.id)
                         module.status = False
                         res['response']['text'] = 'Выключила!'
                         session.commit()
@@ -332,11 +331,9 @@ def handle_dialog(res, req):
                     return
                 res['response']['text'] = 'У вас нет такого устройства или вы им не можете управлять'
                 return
-    else:
         res['response']['text'] = 'Что выключить?'
         return
     res['response']['text'] = 'Я не знаю этой команды, чтобы узнать список команд, напишите Помощь'
-    session.commit()
 
 
 
