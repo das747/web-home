@@ -126,7 +126,7 @@ def handle_dialog(res, req):
     session = db_session.create_session()
     user_id = req['session']['user_id']
 
-    command = req['request']['command'].lower()
+    command = req['request']['command']
     res['response']['buttons'] = [
         {
             'title': 'Перейти на сайт',
@@ -141,7 +141,7 @@ def handle_dialog(res, req):
                                   'Я могу включить и выключать модули умного дома, ' \
                                   'сообщать вам информацию о их состоянии. ' \
                                   'Для начала работы, вам необходимо зарегистрироваться на сайте ' \
-                                  'http://84.201.144.114/register \n' \
+                                  'http://130.193.45.133/register \n' \
                                   'Если вы уже зарегистрировались, Вам необходимо авторизироваться. ' \
                                   'Введите почту и пароль через пробел. \n'
         return
@@ -162,7 +162,7 @@ def handle_dialog(res, req):
             },
             {
                 'title': 'Перейти на сайт',
-                "url": "http://84.201.144.114/",
+                "url": "http://130.193.45.133/",
                 'hide': True
             }
         ]
@@ -175,15 +175,18 @@ def handle_dialog(res, req):
             sessionStorage[user_id]['user'] = None
             return
 
-    if command in ['помощь', 'что ты умеешь']:
-        res['response']['text'] = 'Вот список моих команд: \n\n' \
-                                  'Включи <Название модуля> \n' \
-                                  'Выключи <Название модуля> \n' \
-                                  'Включи группу <Название группы модулей> \n' \
-                                  'Выключи группу <Название группы модулей> \n' \
-                                  'Состояние модулей(список модулей и их состояние)'
+    if command.lower().replace('.', '').replace('?', '').replace(',', '') in ['помощь', 'что ты умеешь']:
+        res['response']['text'] = ''
         if not sessionStorage[user_id]['log_in']:
-            res['response']['text'] += '\n Данными командами можно воспользоваться только после авторизации'
+            res['response']['text'] = 'Чтобы вы могли пользоваться списком команд, ' \
+                                      'приведенным ниже, вам необходимо авторизироваться. \n' \
+                                      'Введите через пробел email и пароль. \n\n'
+        res['response']['text'] += 'Вот список команд: \n\n' \
+                                   'Включи <Название модуля> \n' \
+                                   'Выключи <Название модуля> \n' \
+                                   'Включи группу <Название группы модулей> \n' \
+                                   'Выключи группу <Название группы модулей> \n' \
+                                   'Состояние модулей(список модулей и их состояние)'
         return
     if not sessionStorage[user_id]['log_in']:
         res['response']['text'] = 'Я не могу вам помочь, пока вы не войдете,' \
@@ -192,7 +195,6 @@ def handle_dialog(res, req):
             print('email, password')
             email, password = command.split()[0], command.split()[1]
             user = session.query(User).filter(User.email == email).first()
-            # print(user.name, user.check_password(password), generate_password_hash(password))
             if user and user.check_password(password):
                 sessionStorage[user_id]['user'] = user
                 sessionStorage[user_id]['log_in'] = True
@@ -213,7 +215,7 @@ def handle_dialog(res, req):
                     },
                     {
                         'title': 'Перейти на сайт',
-                        "url": "http://84.201.144.114/",
+                        "url": "http://130.193.45.133/",
                         'hide': True
                     }
                 ]
@@ -334,8 +336,6 @@ def handle_dialog(res, req):
         res['response']['text'] = 'Что выключить?'
         return
     res['response']['text'] = 'Я не знаю этой команды, чтобы узнать список команд, напишите Помощь'
-
-
 
 # обработчик стартовой страницы со списком модулей
 @app.route("/", methods=['GET'])
