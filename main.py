@@ -126,11 +126,11 @@ def handle_dialog(res, req):
     session = db_session.create_session()
     user_id = req['session']['user_id']
 
-    command = req['request']['command']
+    command = req['request']['original_utterance']
     res['response']['buttons'] = [
         {
             'title': 'Перейти на сайт',
-            "url": "http://84.201.144.114/",
+            "url": "http://130.193.45.133/",
             'hide': True
         }
     ]
@@ -195,7 +195,7 @@ def handle_dialog(res, req):
                                    'Состояние модулей(список модулей и их состояние)'
         return
     if not sessionStorage[user_id]['log_in']:
-        res['response']['text'] = 'Вы не можете пользоваться навыком, пока не войдете,' \
+        res['response']['text'] = 'Вы не можете пользоваться навыком, пока не войдете, ' \
                                   'чтобы войти, введите свой email и пароль(через пробел)'
         if command and len(command.split()) == 2:
             print('email, password')
