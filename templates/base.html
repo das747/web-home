@@ -18,18 +18,23 @@
     	</p>
 	{% if current_user.is_authenticated %}
         <p>
+	        {% if current_user.house_id == 0 %}
+            <a class="btn btn-outline-warning" href="/login_house">Войти в умный дом</a>
+            <a class="btn btn-outline-warning" href="/add_house">Добавить умный дом</a>
+            {% endif %}
+            {% if current_user.house_id != 0 %}
             <a class="btn btn-info" href="/">Модули</a>
             <a class="btn btn-info" href="/groups_list">Группы модулей</a>
             <a class="btn btn-outline-warning" href="/edit_house/{{current_user.house_id}}">Изменить умный дом</a>
+            {% endif %}
     	    <a class="btn btn-outline-primary" href="/edit_user/{{ current_user.id }}">{{ current_user.name }}</a>
         </p>
 	{% else %}
     	<p>
-            <a class="btn btn-outline-warning" href="/add_house">Добавить умный дом</a>
             <a class="btn btn-primary" href="/register">Регистрация</a>
             <a class="btn btn-success" href="/login">Вход</a>
         </p>
-{% endif %}
+    {% endif %}
     </nav>
 </header>
 <main role="main" class="container">
