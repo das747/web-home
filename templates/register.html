@@ -1,11 +1,11 @@
-﻿{% extends "base.html" %}
+{% extends "base.html" %}
 
 {% block content %}
 <h1>Регистрация</h1>
 <form action="" method="post">
     {{ form.hidden_tag() }}
     {{ form.csrf_token }}
-    {% for field in form if field.name not in ['csrf_token', 'submit', 'house_id', 'house_password']%}
+    {% for field in form if field.name not in ['csrf_token', 'submit'<!--, 'house_id', 'house_password']-->%}
         <p>
             {{ field.label }}<br>
             {{ field(class="form-control") }}<br>
