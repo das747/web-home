@@ -1,4 +1,7 @@
 from collections import defaultdict
+
+import socketio
+from flask_socketio import emit
 from requests import post
 import logging
 import json
@@ -22,8 +25,11 @@ from data.users import User
 from data.groups import Group
 from data.houses import House
 
+sio = socketio.Server(async_mode='threading')
 app = Flask(__name__)
+app.wsgi_app = socketio.WSGIApp(sio, app.wsgi_app)
 app.config['SECRET_KEY'] = 'yandexlyceum_secret_key'
+
 logging.basicConfig(level=logging.INFO, format='%(filename)s --> %(levelname)s: %(message)s')
 
 api = Api(app)  # подключение flask_restful api
@@ -36,7 +42,6 @@ api.add_resource(switch_resource.SwitchResource, '/api/switch/<int:switch_id>')
 api.add_resource(switch_resource.SwitchListResource, '/api/switch')
 api.add_resource(group_resource.GroupResource, '/api/group/<int:group_id>')
 api.add_resource(group_resource.GroupListResource, '/api/group')
-
 # хранилище данных о диалогах с пользователями
 sessionStorage = defaultdict(lambda: None)
 
@@ -69,20 +74,26 @@ class MultiCheckboxField(SelectMultipleField):  # поле с выпадающи
 
 class SwitchForm(FlaskForm):  # форма для добавления и редактирования модулей
     title = StringField(
-            'Название модуля(называйте модуль, чтобы всегда было понятно за что он отвечает)',
-            validators=[DataRequired()])
-    port = IntegerField('Номер порта', validators=[DataRequired()])
+        'Название модуля(называйте модуль, чтобы всегда было понятно за что он отвечает)',
+        validators=[DataRequired()])
+    personal_name = IntegerField('Уникальное имя устройства', validators=[DataRequired()])
     users = MultiCheckboxField('Кто может использовать (если не выбрать доступно всем)', coerce=int)
     editors = MultiCheckboxField('Кто может редактировать (если не выбрать доступно всем)',
                                  coerce=int)
     submit = SubmitField('Сохранить')
 
 
-class HouseEditForm(FlaskForm): # форма для редактирования домов
+class HouseEditForm(FlaskForm):  # форма для редактирования домов
     title = StringField('Название', validators=[DataRequired()])
     address = StringField('WebHook адрес', validators=[DataRequired()])
     password = PasswordField('Пароль', validators=[DataRequired()])
     submit = SubmitField('Сохранить')
+
+
+class HouseLoginForm(FlaskForm):
+    unic_name = StringField('Уникальный адрес дома', validators=[DataRequired()])
+    password = PasswordField('Пароль', validators=[DataRequired()])
+    submit = SubmitField('Войти')
 
 
 class GroupForm(FlaskForm):  # форма для добавления и редактирования групп модулей
@@ -107,8 +118,8 @@ class RegisterForm(FlaskForm):  # форма для регистрации по�
     password = PasswordField('Пароль', validators=[DataRequired()])
     password_again = PasswordField('Повторите пароль', validators=[DataRequired()])
     name = StringField('Имя пользователя', validators=[DataRequired()])
-    house_id = SelectField('Дом', coerce=int)
-    house_password = PasswordField('Пароль от дома', validators=[DataRequired()])
+    # house_id = SelectField('Дом', coerce=int)
+    # house_password = PasswordField('Пароль от дома', validators=[DataRequired()])
     submit = SubmitField('Регистрация')
 
 
@@ -117,7 +128,7 @@ class UserEditForm(FlaskForm):  # форма для редактирования
     name = StringField('Имя', validators=[DataRequired()])
     password_again = PasswordField('Введите новый пароль для смены текущего')
     password_again_2 = PasswordField('Повторите новый пароль')
-    password = PasswordField('Пароль', validators=[DataRequired()])
+    password = PasswordField('Текущий пароль', validators=[DataRequired()])
     submit = SubmitField('Сохранить')
 
 
@@ -318,9 +329,11 @@ def handle_dialog(res, req):
 
 # обработчик стартовой страницы со списком модулей
 @app.route("/", methods=['GET'])
-def start():
+def start_page():
     session = db_session.create_session()
     if current_user.is_authenticated:
+        if current_user.house_id == 0:
+            return redirect("/login_house")
         user = session.query(User).filter(User.id == current_user.id).first()
         public = session.query(Switch).filter((Switch.public_edit == 1) |
                                               (Switch.public_use == 1),
@@ -331,6 +344,43 @@ def start():
     else:
         switches = []
     return render_template('index.html', title='Smart house', items=switches, type='switch')
+
+#  Обрботчик вторизации в доме
+@app.route("/login_house", methods=['GET', 'POST'])
+@login_required
+def home_page():
+    form = HouseLoginForm()
+    session = db_session.create_session()
+    if current_user.is_authenticated:
+        if request.method == 'GET':
+            return render_template('house_login.html', title='Авторизация в доме', form=form)
+        elif form.validate_on_submit():
+            house = session.query(House).filter(House.web_hook == form.unic_name.data).first()
+            if not house:
+                return render_template('house_login.html', title='Авторизация в доме', form=form,
+                                       message="Такого дома нет")
+            elif not house.check_password(form.password.data):
+                return render_template('house_login.html', title='Авторизация в доме', form=form,
+                                       message="Пароль неверный")
+            user = session.query(User).filter(User.id == current_user.id).first()
+            user.house_id = house.id
+            session.commit()
+            return redirect('/')
+    else:
+        abort(403)
+
+#  Обработчик выхода из умного дома
+@app.route('/logout_house')
+@login_required
+def logout_house():
+    session = db_session.create_session()
+    user = session.query(User).get(current_user.id)
+    if user:
+        user.house_id = 0
+        session.commit()
+        return redirect('/')
+    else:
+        abort(404)
 
 
 # обработчик страницы редактирования проиля пользователя
@@ -350,7 +400,7 @@ def edit_user(user_id):
                                        item=user)
 
             elif form.validate_on_submit():
-                print(form.password_again.data, form.password_again_2.data)
+                # print(form.password_again.data, form.password_again_2.data)
                 # проверка уникальности почты
                 if session.query(User).filter(User.email == form.email.data, User.id != user_id).first():
                     return render_template('user.html', title='Редактирование пользователя',
@@ -416,12 +466,12 @@ def add_switch():
             return render_template('switch.html', title='Добавление модуля', form=form,
                                    message='Имя модуля уже занято')
         # проверка уникальности порта
-        elif session.query(Switch).filter(Switch.port == form.port.data,
+        elif session.query(Switch).filter(Switch.personal_name == form.personal_name.data,
                                           Switch.house_id == current_user.house_id).first():
             return render_template('switch.html', title='Добавление модуля', form=form,
                                    message='Этот порт уже используется')
 
-        switch = Switch(title=form.title.data.lower(), status=0, port=form.port.data,
+        switch = Switch(title=form.title.data.lower(), status=0, personal_name=form.personal_name.data,
                         house_id=current_user.house_id)
         session.add(switch)
         for user in form.users.data:
@@ -452,7 +502,7 @@ def edit_switch(switch_id):
         if current_user in switch.editors or switch.public_edit:  # проверка прав
             if request.method == 'GET':
                 form.title.data = switch.title
-                form.port.data = switch.port
+                form.personal_name.data = switch.personal_name
                 form.editors.data = [user.id for user in switch.editors]
                 form.users.data = [user.id for user in switch.users]
                 return render_template('switch.html', title='Редактирование модуля', form=form,
@@ -466,14 +516,14 @@ def edit_switch(switch_id):
                     return render_template('switch.html', title='Редактирования модуля',
                                            form=form, message='Имя модуля уже занято', item=switch)
                 # проверка уникальности порта
-                elif session.query(Switch).filter(Switch.port == form.port.data,
+                elif session.query(Switch).filter(Switch.personal_name == form.personal_name.data,
                                                   Switch.id != switch_id,
                                                   Switch.house_id == switch.house_id).first():
                     return render_template('switch.html', title='Редактирования модуля',
                                            form=form, message='"Этот порт уже используется"',
                                            item=switch)
                 switch.title = form.title.data
-                switch.port = form.port.data
+                switch.personal_name = form.personal_name.data
                 # изменение списка пользователей:
                 for user in switch.users:  # удаление лишних
                     if user.id not in form.users.data:
@@ -540,7 +590,9 @@ def turn_light(device_id, state):
             abort(403)
     else:
         abort(404)
-    return redirect('/')
+    if switch.sid != 0:
+        sio.emit('get_msg', {'status': switch.status}, room=switch.sid)
+    return redirect("/")
 
 
 # обработчик стрницы добавления дома
@@ -613,7 +665,8 @@ def edit_house(house_id):
 @app.route('/groups_list')
 def list_groups():
     session = db_session.create_session()
-    if current_user.is_authenticated:
+    user = session.query(User).filter(User.id == current_user.id).first()
+    if current_user.is_authenticated and user.house_id != 0:
         user = session.query(User).filter(User.id == current_user.id).first()
         public = session.query(Group).filter((Group.public_edit == 1) |
                                              (Group.public_use == 1),
@@ -770,6 +823,9 @@ def set_group(group_id, state):
         if current_user in group.users or group.public_use:  # проверка прав
             for switch in group.switches:
                 switch.status = state
+                if switch.sid != 0:
+                    sio.emit('get_msg', {'status': switch.status}, room=switch.sid)
+
                 # отправка запроса об изменнии состояния на управляющее устройство
                 # post(switch.house.web_hook, json={'port': switch.port, 'status': state})
             group.status = state
@@ -788,7 +844,7 @@ def register():
     form = RegisterForm()
     session = db_session.create_session()
     house_choices = [(house.id, house.title) for house in session.query(House).all()]
-    form.house_id.choices = house_choices
+    # form.house_id.choices = house_choices
     if form.validate_on_submit():
         # проверка совпадения паролей
         if form.password.data != form.password_again.data:
@@ -852,5 +908,37 @@ def send():
     return json.dumps(response)
 
 
+def get_device_id(environ):
+    return environ.get('HTTP_DEVICE_ID', None)
+
+#  Соединение с модулем умного дома
+@sio.event
+def connect(sid, environ):
+    session = db_session.create_session()
+    device_id = get_device_id(environ) or sid
+    sio.save_session(sid, {'device_id': device_id})
+    switch = session.query(Switch).filter(Switch.personal_name == device_id).first()
+    switch.sid = sid
+    print('{} is connected'.format(device_id))
+    session.commit()
+
+#  Отправка данных на модуль
+@sio.event
+def my_message(sid, data):
+    # session = sio.get_session(sid)
+    # print('Received data from {}: {}'.format(session['device_id'], data))
+    sio.emit('get_msg', {'data': 'foobar'}, room=sid)
+
+#  Разъединение с модулем умного дома
+@sio.event
+def disconnect(sid):
+    session = db_session.create_session()
+    switch = session.query(Switch).filter(Switch.sid == sid).first()
+    if switch:
+        switch.sid = 0
+        print(switch.personal_name, 'is disconnected')
+    session.commit()
+
+
 if __name__ == '__main__':
-    app.run()
+    app.run()  # /host='192.168.1.222'/#
