@@ -1,7 +1,11 @@
 {% extends "base.html" %}
 
 {% block content %}
-<h1>Регистрация умного дома</h1>
+{% if title == 'Добавление дома' %}
+<h1>Создание умного дома</h1>
+{% elif title == 'Редактирование дома' %}
+<h1>Редактирование умного дома</h1>
+{% endif %}
 <form action="" method="post">
     {{ form.hidden_tag() }}
     {{ form.csrf_token }}
@@ -17,7 +21,10 @@
         </p>
     {% endfor %}
     <br>
-    <p>{{ form.submit(type="submit", class="btn btn-primary") }}</p>
+    <a>{{ form.submit(type="submit", class="btn btn-primary") }}</a>
+    {% if title == 'Редактирование дома' %}
+    <a class="btn btn-secondary" href="/logout_house">Выйти из умного дома</a>
+    {% endif %}
     {{message}}
 </form>
 {% endblock %}
